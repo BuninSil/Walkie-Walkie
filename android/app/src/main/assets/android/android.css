@@ -263,3 +263,17 @@ body {
 }
 
 .wk-net-note { margin: 14px 0 0; color: #8f8d86; font-size: 12.5px; line-height: 1.4; }
+
+button.wk-person {
+  width: 100%;
+  border-width: 0 0 1px;
+  border-style: solid;
+  border-color: #24252a;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.wk-person:active { background: rgba(255, 255, 255, 0.05); }
+.wk-net-warn { margin: -4px 0 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 59, 47, 0.14); color: #ffb4ad; font-size: 13px; }

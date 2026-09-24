@@ -712,6 +712,56 @@
     return h < 24 ? `${h} ч ${min % 60} мин` : `${Math.floor(h / 24)} д`;
   }
 
+  /* Тап по человеку — рация переходит на его частоту. Частоту крутим так же, как её крутит
+   * горячая клавиша «канал вверх» на ПК (stepTuning в рации): встаём на шаг ниже и делаем шаг
+   * вверх — рация сама перестроит приёмник, скажет серверу и сохранит канал. */
+  const r5 = (v) => Math.round(v * 1e5) / 1e5;
+  const PLANS = { // как в рации: PMR и LPD
+    PMR: Array.from({ length: 16 }, (_, i) => r5(446.00625 + i * 0.0125)),
+    LPD: Array.from({ length: 69 }, (_, i) => r5(433.075 + i * 0.025)),
+  };
+  const STEPS = [2.5, 5, 6.25, 10, 12.5, 25];
+
+  function tuneTo(f) {
+    const w = window.radioWidget;
+    if (!w || !window.__walkieHotkey) return 'Рация ещё не готова';
+    if (!w.radio.power) return 'Сначала включите рацию';
+    if (w.tx.active) return 'Отпустите PTT';
+    const step = (dir) => window.__walkieHotkey(dir > 0 ? 'chUp' : 'chDown');
+    if (f < 300) {
+      w.radio.fm = true;
+      const up = f - 0.1 >= 87.5;
+      w.radio.fmFreq = r5(up ? f - 0.1 : f + 0.1);
+      step(up ? 1 : -1);
+      return null;
+    }
+    w.radio.fm = false;
+    const v = w.vfo[w.radio.active];
+    // Рация в режиме каналов (MR), а частота — канал PMR/LPD: выбираем его номер
+    if (v.mode === 'mr') {
+      for (const [plan, list] of Object.entries(PLANS)) {
+        const i = list.findIndex((c) => Math.abs(c - f) < 1e-6);
+        if (i < 0) continue;
+        v.plan = plan;
+        v.ch = (i - 1 + list.length) % list.length;
+        step(1);
+        return null;
+      }
+    }
+    // Частота (VFO): шаг, в сетку которого она попадает; настройку шага пользователя возвращаем
+    const keep = w.cfg.step;
+    let s = STEPS.findIndex((k) => Math.abs(Math.round(f / (k / 1000)) * (k / 1000) - f) < 1e-6);
+    if (s < 0) s = 0;
+    const d = STEPS[s] / 1000;
+    v.mode = 'vfo';
+    w.cfg.step = s;
+    const up = f - d >= 400;
+    v.freq = r5(up ? f - d : f + d);
+    step(up ? 1 : -1);
+    w.cfg.step = keep;
+    return null;
+  }
+
   const onMyChannel = (f) => net.myFreqs.some((m) => Math.abs(m - f) <= (f < 300 ? FM_CHANNEL : UHF_CHANNEL));
 
   function setupNet() {
@@ -757,7 +807,19 @@
   }
 
   function personRow(p, now) {
-    const row = el('div', 'wk-row wk-person');
+    const row = el(p.id >= 0 ? 'button' : 'div', 'wk-row wk-person');
+    if (p.id >= 0) {
+      row.type = 'button';
+      row.addEventListener('click', () => {
+        const err = onMyChannel(p.freq) ? null : tuneTo(p.freq);
+        if (err) {
+          netNote(err);
+          return;
+        }
+        shell?.vibrate?.();
+        openNet(false);
+      });
+    }
     const talking = now - (net.heard.get(p.id) ?? 0) < 1200;
     if (talking) row.classList.add('is-talking');
     const text = el('span', 'wk-row__text');
@@ -768,6 +830,12 @@
     return row;
   }
 
+  let netMsg = null;
+  function netNote(text) {
+    netMsg = { text, until: Date.now() + 2500 };
+    renderNet();
+  }
+
   function renderNet() {
     if (!netPanel || netPanel.hidden) return;
     const now = Date.now();
@@ -775,6 +843,7 @@
     const people = [...net.people.values()].filter((p) => p.id !== net.self)
       .sort((a, b) => a.freq - b.freq || a.name.localeCompare(b.name, 'ru'));
     sheet.append(el('h2', null, net.online ? `Кто в сети · ${people.length}` : 'Кто в сети'));
+    if (netMsg && netMsg.until > now) sheet.append(el('p', 'wk-net-warn', netMsg.text));
 
     if (!net.online) {
       sheet.append(el('p', 'wk-net-note', 'Нет связи с сервером. Подключитесь: MENU → SERVER, или проверьте интернет (на мобильном — через VPN).'));
@@ -799,7 +868,7 @@
         sheet.append(sec);
       }
       if (!people.length) sheet.append(el('p', 'wk-net-note', 'Кроме вас никого нет. Рация видна в сети, пока она включена.'));
-      sheet.append(el('p', 'wk-net-note', 'Видны все включённые рации и станции на этом сервере. «Говорит» — у тех, чей эфир доходит до вашего канала.'));
+      sheet.append(el('p', 'wk-net-note', 'Видны все включённые рации и станции на этом сервере. Нажмите на человека — рация перейдёт на его частоту. «Говорит» — у тех, чей эфир доходит до вашего канала.'));
     }
 
     const done = el('button', 'wk-done', 'Готово');
