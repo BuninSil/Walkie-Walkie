@@ -139,11 +139,37 @@
     fit();
     setupTextEntry();
     setupLook();
+    setupMicRelease();
     // На ПК страница открыта с app:// и «своего» сервера у неё нет; здесь адрес страницы https://,
     // и link.js принял бы его за сервер. Сервер не выбран — пусть рация так и показывает
     const link = window.radioWidget?.link;
     if (link && !link.ws) link.url = null;
   });
+
+  /* ───────── Микрофон — только на время передачи ─────────
+   * На ПК рация держит микрофон открытым с первой передачи. На Android открытый микрофон WebView
+   * переводит весь телефон в режим звонка: звук застревает в динамике, наушники не подхватываются —
+   * и у других приложений тоже. Поэтому после передачи микрофон отпускаем (со следующей передачей
+   * рация откроет его сама, как в первый раз). С VOX микрофон нужен всё время — тогда не трогаем. */
+  const MIC_IDLE_MS = 1500;
+
+  function setupMicRelease() {
+    let idleSince = 0;
+    setInterval(() => {
+      const w = window.radioWidget;
+      const tx = w?.tx;
+      if (!w?.broadcaster?.mic || !tx) return;
+      if (tx.active || tx.starting || tx.stopping || w.cfg.vox > 0) {
+        idleSince = 0;
+        return;
+      }
+      if (!idleSince) idleSince = Date.now();
+      else if (Date.now() - idleSince >= MIC_IDLE_MS) {
+        idleSince = 0;
+        w.broadcaster.setMic(false);
+      }
+    }, 500);
+  }
 
   /* ───────── Ввод текста: окно Android вместо клавиатуры компьютера ─────────
    * Рация начинает ввод, фокусируя скрытое поле (как на ПК). Мы показываем окно Android с полем

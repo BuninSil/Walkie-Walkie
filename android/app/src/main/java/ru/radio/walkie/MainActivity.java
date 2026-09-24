@@ -7,6 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -135,7 +138,56 @@ public class MainActivity extends ComponentActivity {
             requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 2);
         }
 
+        audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        audio.registerAudioDeviceCallback(headsetWatch, null);
+
         web.loadUrl(PAGE + "?view=widget");
+    }
+
+    /* ───────── Наушники во время передачи ─────────
+     * Пока микрофон открыт, WebView держит телефон в режиме звонка и сам маршрут не меняет.
+     * Подключили или отключили наушники во время передачи — переводим звонок на них (или обратно). */
+    private AudioManager audio;
+    private final AudioDeviceCallback headsetWatch = new AudioDeviceCallback() {
+        @Override
+        public void onAudioDevicesAdded(AudioDeviceInfo[] added) {
+            routeCall();
+        }
+
+        @Override
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) {
+            routeCall();
+        }
+    };
+
+    private static boolean isHeadset(AudioDeviceInfo d) {
+        switch (d.getType()) {
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+            case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+            case AudioDeviceInfo.TYPE_USB_HEADSET:
+            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void routeCall() {
+        if (audio.getMode() != AudioManager.MODE_IN_COMMUNICATION) return; // не звонок — Android сам разберётся
+        AudioDeviceInfo headset = null;
+        if (Build.VERSION.SDK_INT >= 31) {
+            for (AudioDeviceInfo d : audio.getAvailableCommunicationDevices()) {
+                if (isHeadset(d)) headset = d;
+            }
+            if (headset != null) audio.setCommunicationDevice(headset);
+            else audio.clearCommunicationDevice();
+        } else {
+            for (AudioDeviceInfo d : audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                if (isHeadset(d)) headset = d;
+            }
+            audio.setSpeakerphoneOn(headset == null);
+        }
     }
 
     // widget.html как есть + адаптер: bridge.js первым в <head> (до скриптов рации), стили — последними
@@ -329,6 +381,7 @@ public class MainActivity extends ComponentActivity {
     protected void onDestroy() {
         if (instance == this) instance = null;
         if (textDialog != null) textDialog.dismiss();
+        if (audio != null) audio.unregisterAudioDeviceCallback(headsetWatch);
         air.closeAll();
         if (isFinishing()) WalkieService.stop(this);
         web.destroy();
