@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "web": "node scripts/build-web.js",
+    "preview": "npm run web && node scripts/preview.js",
     "sync": "npm run web && cap sync android",
     "open": "cap open android",
     "apk": "npm run sync && cd android && ./gradlew assembleDebug"
