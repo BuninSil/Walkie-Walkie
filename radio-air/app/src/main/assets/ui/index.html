@@ -64,24 +64,6 @@
     <p class="note">На мобильном интернете сервер доступен только через VPN с иностранным сервером; на Wi-Fi — без него.</p>
   </section>
 
-  <!-- Свой сервер эфира прямо в телефоне, как HOST в ПК-программе -->
-  <section class="card" id="host-card">
-    <div class="card__head"><h2>Свой сервер</h2><span class="dot" id="host-state">выключен</span></div>
-    <div class="host-row">
-      <span class="host-row__text">Сервер в этом телефоне<small>Рации и ПК подключаются к станции напрямую</small></span>
-      <button class="wk-switch" id="host-on" type="button" aria-pressed="false"><span></span></button>
-    </div>
-    <div class="host-body" id="host-body" hidden>
-      <div class="row host-port">
-        <label><span>Порт</span><input id="host-port" inputmode="numeric" maxlength="5" autocomplete="off"></label>
-        <button class="chip" id="host-upnp" type="button">Открыть порт на роутере (UPnP)</button>
-      </div>
-      <p class="note warn" id="host-error" hidden></p>
-      <ul class="host-addrs" id="host-addrs"></ul>
-      <p class="note" id="host-note"></p>
-    </div>
-  </section>
-
   <section class="card">
     <div class="card__head"><h2>Мой эфир</h2></div>
     <div class="grid">
