@@ -55,4 +55,5 @@ dependencies {
     implementation 'androidx.documentfile:documentfile:1.1.0'
     implementation 'androidx.webkit:webkit:1.14.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7' // свой сервер эфира (AirHub)
 }

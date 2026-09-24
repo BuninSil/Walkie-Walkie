@@ -25,7 +25,7 @@
   };
 
   const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина', desert: 'Камуфляж' };
-  const ANTENNAS = { stock: 'Родная', long: 'Длинная', tele: 'Телескоп', stubby: 'Короткая', off: 'Без антенны' };
+  const ANTENNAS = { stock: 'Родная', flat: 'Плоская', long: 'Длинная', tele: 'Телескоп', stubby: 'Короткая', off: 'Без антенны' };
   const LCD_STYLES = {
     classic: 'Классика', dark: 'Тёмный', oled: 'OLED', crt: 'ЭЛТ', glass: 'Стекло', gradient: 'Градиент',
   };

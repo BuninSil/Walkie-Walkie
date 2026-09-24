@@ -468,3 +468,28 @@ label > span, .slider > span {
 .upd { align-items: center; }
 .upd__text { flex: 1; font-size: 14px; }
 #upd-btn:disabled { opacity: 0.5; }
+
+/* ───────── Свой сервер ───────── */
+
+.host-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.host-row__text { display: grid; gap: 2px; font-size: 14px; font-weight: 600; }
+.host-row__text small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.host-body { margin-top: 12px; }
+.host-port { align-items: flex-end; }
+.host-port label { flex: 0 0 96px; }
+.host-port .chip { flex: 1; }
+
+.host-addrs { margin: 12px 0 0; padding: 0; list-style: none; }
+
+.host-addrs li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.host-addrs li span { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.host-addrs b { color: var(--teal); font: 700 16px var(--mono); overflow-wrap: anywhere; }
+.host-addrs small { color: var(--muted); font-size: 12px; }
+input:disabled, .btn:disabled { opacity: 0.45; }

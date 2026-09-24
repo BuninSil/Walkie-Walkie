@@ -115,6 +115,19 @@ html[data-antenna="tele"] .antenna::after {
   background: linear-gradient(90deg, #2a2b30, #6a6d73 50%, #2a2b30) !important;
 }
 
+/* Плоская тактическая (как на фото): закруглённый колпачок, плоская гибкая лента,
+   ниже — круглое ребристое утолщение и разъём. Высота — как у родной */
+html[data-antenna="flat"] .antenna {
+  border-radius: 0;
+  box-shadow: none !important;
+  background:
+    radial-gradient(ellipse 7.5px 6px at 50% 6px, var(--wk-ant-hi) 0, var(--wk-ant) 3.5px, var(--wk-ant-lo) 6px, transparent 7px) center top / 22px 13px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo) 0 1.5px, var(--wk-ant) 1.5px 30%, color-mix(in srgb, var(--wk-ant) 70%, var(--wk-ant-hi)) 30% 42%, var(--wk-ant) 42% calc(100% - 1.5px), var(--wk-ant-lo) calc(100% - 1.5px)) center 8px / 12px 47px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-hi) 55%, var(--wk-ant-lo)) center 53px / 13px 5px no-repeat,
+    repeating-linear-gradient(180deg, transparent 0 4px, rgba(255, 255, 255, 0.07) 4px 5px) center 57px / 15px 30px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 52%, var(--wk-ant-lo)) center 57px / 15px 30px no-repeat !important;
+}
+
 /* Короткая «пенёк»: толстая, резиновая */
 html[data-antenna="stubby"] .antenna {
   top: 36px;

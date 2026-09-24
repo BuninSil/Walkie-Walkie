@@ -11,7 +11,7 @@
 |---|---|---|
 | **ПК (Windows)** | `radio-walkie/` → `npm run dist` или готовый установщик | Рация, свой сервер эфира, полоска поверх игр, горячие клавиши |
 | **Android** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Walkie-1.0.N.apk` | Та же рация, кнопка PTT поверх приложений, фоновый приём |
-| **Радиостанция (Android)** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Station-1.0.N.apk` | Своя FM-станция: музыка из папки и голос в эфир на 87.5–108 МГц — [подробно](radio-air/README.md) |
+| **Радиостанция (Android)** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Station-1.0.N.apk` | Своя FM-станция: музыка из папки и голос в эфир на 87.5–108 МГц; может сама быть сервером эфира — [подробно](radio-air/README.md) |
 
 **Авторы:** [BuninSil](https://github.com/BuninSil) и Valex.
 

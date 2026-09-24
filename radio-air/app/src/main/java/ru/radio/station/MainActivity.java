@@ -198,6 +198,22 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
             main.post(() -> station.setServer(address));
         }
 
+        // Свой сервер: включить/выключить, порт, открыть порт на роутере (UPnP)
+        @JavascriptInterface
+        public void setHost(boolean on, int port, boolean upnp) {
+            int p = port >= 1024 && port <= 65535 ? port : OwnServer.DEFAULT_PORT;
+            main.post(() -> station.own.set(on, p, upnp));
+        }
+
+        @JavascriptInterface
+        public void copy(String text) {
+            main.post(() -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Адрес сервера", text));
+                if (Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(MainActivity.this, "Скопировано", android.widget.Toast.LENGTH_SHORT).show();
+            });
+        }
+
         @JavascriptInterface
         public void setStation(String json) {
             main.post(() -> {

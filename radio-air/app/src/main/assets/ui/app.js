@@ -104,6 +104,96 @@
     if (e.key === 'Enter') $('connect').click();
   });
 
+  /* ───────── Свой сервер ───────── */
+
+  const hostPort = () => {
+    const p = Number($('host-port').value);
+    return Number.isInteger(p) && p >= 1024 && p <= 65535 ? p : (st.host?.port ?? 8765);
+  };
+  const setHost = (change) => {
+    const h = { on: Boolean(st.host?.on), port: st.host?.port ?? 8765, upnp: st.host?.upnp !== false, ...change };
+    st.host = { ...(st.host || {}), ...h, starting: h.on && !st.host?.running };
+    app?.setHost(h.on, h.port, h.upnp);
+    render();
+  };
+  $('host-on').addEventListener('click', () => setHost({ on: !st.host?.on }));
+  $('host-upnp').addEventListener('click', () => setHost({ upnp: st.host?.upnp === false }));
+  const port = $('host-port');
+  port.addEventListener('focus', () => { editing = 'host-port'; });
+  port.addEventListener('blur', () => {
+    editing = null;
+    if (hostPort() !== st.host?.port) setHost({ port: hostPort() });
+  });
+  port.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') port.blur();
+  });
+
+  function copyText(text) {
+    if (app?.copy) app.copy(text);
+    else navigator.clipboard?.writeText(text);
+  }
+
+  function renderHost() {
+    const h = st.host || {};
+    $('host-on').setAttribute('aria-pressed', String(Boolean(h.on)));
+    $('host-body').hidden = !h.on;
+    const state = $('host-state');
+    const others = Math.max(0, (h.clients ?? 0) - (h.running && st.online ? 1 : 0)); // сама станция — не в счёт
+    state.className = `dot${h.running ? ' is-on' : h.on ? ' is-lost' : ''}`;
+    state.textContent = !h.on ? 'выключен' : h.error ? 'ошибка' : h.running ? `работает · подключено ${others}` : 'запускаю…';
+    if (editing !== 'host-port') $('host-port').value = String(h.port ?? 8765);
+    $('host-upnp').classList.toggle('is-on', h.upnp !== false);
+    const err = $('host-error');
+    err.hidden = !h.error;
+    err.textContent = h.error ? `Сервер: ${h.error}` : '';
+
+    // Адреса, которые можно раздать: Wi-Fi и (если роутер открыл порт) интернет
+    const rows = [];
+    if (h.running) {
+      for (const ip of h.lan || []) rows.push([`${ip}:${h.port}`, 'в этой Wi-Fi сети (или точке доступа телефона)']);
+      if (h.upnpState === 'ok' && h.externalIp) {
+        rows.push([`${h.externalIp}:${h.port}`, h.public ? 'из интернета' : 'из интернета не выйдет: у провайдера «серый» IP']);
+      }
+    }
+    const key = JSON.stringify(rows);
+    const list = $('host-addrs');
+    if (list.dataset.key !== key) {
+      list.dataset.key = key;
+      list.replaceChildren(...rows.map(([addr, where]) => {
+        const li = document.createElement('li');
+        const text = document.createElement('span');
+        const b = document.createElement('b');
+        b.textContent = addr;
+        const small = document.createElement('small');
+        small.textContent = where;
+        text.append(b, small);
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.type = 'button';
+        btn.textContent = 'Копировать';
+        btn.addEventListener('click', () => {
+          copyText(addr);
+          btn.textContent = 'Скопировано';
+          setTimeout(() => { btn.textContent = 'Копировать'; }, 1500);
+        });
+        li.append(text, btn);
+        return li;
+      }));
+    }
+
+    let note = '';
+    if (h.running && !(h.lan || []).length) note = 'Телефон не в Wi-Fi: подключитесь к Wi-Fi или включите точку доступа — тогда к серверу смогут подключиться.';
+    else if (h.running && h.upnp !== false && h.upnpState === 'trying') note = 'Прошу роутер открыть порт…';
+    else if (h.running && h.upnp !== false && h.upnpState === 'fail') note = `Роутер не открыл порт (${h.upnpError || 'UPnP'}) — из интернета не подключатся, в Wi-Fi работает.`;
+    else if (h.running) note = 'В рации: MENU → 12 SERVER → адрес отсюда. Станция уже на своём сервере. Сервер работает, пока включён этот переключатель, — и в фоне.';
+    $('host-note').textContent = note;
+    $('host-note').hidden = !note;
+
+    // Со своим сервером адрес чужого сервера не используется
+    $('address').disabled = Boolean(h.running);
+    $('connect').disabled = Boolean(h.running);
+  }
+
   $('rds').addEventListener('click', () => sendStation({ rds: !st.rds }));
   $('monitor').addEventListener('click', () => {
     st.monitor = !st.monitor;
@@ -236,9 +326,11 @@
     else status = 'Не в эфире.';
     $('status').textContent = status;
 
+    renderHost();
+
     const srv = $('srv-state');
     srv.className = `dot${st.online ? ' is-on' : st.address ? ' is-lost' : ''}`;
-    srv.textContent = st.online ? 'на связи' : st.address ? 'нет связи' : 'не подключено';
+    srv.textContent = st.host?.running ? (st.online ? 'свой сервер' : 'подключаюсь к своему') : st.online ? 'на связи' : st.address ? 'нет связи' : 'не подключено';
     const err = $('srv-error');
     err.hidden = !st.serverError || st.online;
     err.textContent = st.serverError ? `Нет связи: ${st.serverError}` : '';

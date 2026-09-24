@@ -50,6 +50,7 @@ final class Station implements AirLink.Listener {
     private final SharedPreferences prefs;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AirLink link = new AirLink(this);
+    final OwnServer own;
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
 
     // Настройки (главный поток)
@@ -98,9 +99,29 @@ final class Station implements AirLink.Listener {
         String f = prefs.getString("folder", null);
         folder = f == null ? null : Uri.parse(f);
         folderName = prefs.getString("folderName", null);
-        link.setServer(AirPacket.serverUrl(address));
+        own = new OwnServer(context, this::onServerChanged);
+        link.setServer(currentUrl());
         deriveKey();
         rescan();
+        own.resume(); // сервер был включён — поднимаем снова
+    }
+
+    // Свой сервер работает — станция на нём; иначе — на сервере по адресу
+    private String currentUrl() {
+        String local = own.localUrl();
+        return local != null ? local : AirPacket.serverUrl(address);
+    }
+
+    private void onServerChanged() {
+        String url = currentUrl();
+        if (url == null ? link.url() != null : !url.equals(link.url())) {
+            sentName = null;
+            link.setServer(url);
+        }
+        // Сервер держит службу (процессор и Wi-Fi), даже когда станция не в эфире
+        if (own.wanted) StationService.start(context);
+        else if (!onAir) StationService.stop(context);
+        changed();
     }
 
     void addListener(Listener l) {
@@ -126,7 +147,7 @@ final class Station implements AirLink.Listener {
         String url = AirPacket.serverUrl(address);
         if (url == null && !address.isEmpty()) serverError = "неверный адрес";
         sentName = null;
-        link.setServer(url);
+        if (own.localUrl() == null) link.setServer(url); // со своим сервером станция остаётся на нём
         changed();
     }
 
@@ -259,7 +280,8 @@ final class Station implements AirLink.Listener {
         sentName = null;
         listenersCount = 0;
         level = 0;
-        StationService.stop(context);
+        if (!own.wanted) StationService.stop(context); // свой сервер работает и без эфира
+        else StationService.start(context);            // обновить уведомление
         changed();
     }
 
@@ -507,7 +529,7 @@ final class Station implements AirLink.Listener {
                 .put("onAir", onAir).put("mic", mic).put("listeners", listenersCount).put("problem", problem)
                 .put("current", current).put("title", nowTitle).put("position", positionMs).put("duration", durationMs)
                 .put("level", (double) level).put("airName", airName())
-                .put("version", BuildConfig.VERSION_NAME);
+                .put("version", BuildConfig.VERSION_NAME).put("host", own.state());
         } catch (Exception ignored) {
             // не бросает
         }
