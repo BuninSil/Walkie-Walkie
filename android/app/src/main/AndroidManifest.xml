@@ -45,6 +45,17 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback|microphone" />
 
+        <!-- Скачанное обновление для обычного установщика APK (если системная сессия не справилась) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
+
         <!-- Обновления из релизов GitHub: итог установки и «приложение обновилось» -->
         <receiver
             android:name=".UpdateReceiver"

@@ -180,12 +180,13 @@
       downloading: `Скачиваю ${u.latest}: ${u.progress || 0}%`,
       ready: `Версия ${u.latest} скачана${st.onAir ? ' — поставлю после эфира' : ''}`,
       installing: `Ставлю ${u.latest}…`,
+      confirm: `Подтвердите установку ${u.latest}`,
       error: 'Не получилось',
     };
     $('upd-ver').textContent = u.current ? `версия ${u.current}` : '';
     $('upd-text').textContent = texts[u.state] || 'Нажмите «Проверить»';
     const btn = $('upd-btn');
-    btn.textContent = u.state === 'available' ? 'Скачать' : u.state === 'ready' ? (u.canInstall ? 'Установить' : 'Разрешить') : 'Проверить';
+    btn.textContent = u.state === 'available' ? 'Скачать' : u.state === 'ready' || u.state === 'confirm' ? (u.canInstall ? 'Установить' : 'Разрешить') : 'Проверить';
     btn.disabled = ['checking', 'downloading', 'installing'].includes(u.state);
     $('upd-error').hidden = !u.error;
     $('upd-error').textContent = u.error || '';

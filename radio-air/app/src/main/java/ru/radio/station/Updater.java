@@ -66,7 +66,7 @@ public final class Updater {
         .readTimeout(60, TimeUnit.SECONDS)
         .build();
 
-    // Что показывать: idle, checking, latest, available, downloading, ready, installing, error
+    // Что показывать: idle, checking, latest, available, downloading, ready, installing, confirm, error
     public volatile String state = "idle";
     public volatile String latest;   // «1.0.N» — последняя найденная версия
     public volatile String error;
@@ -74,6 +74,9 @@ public final class Updater {
     private volatile String assetUrl;
     private volatile File apk;
     private volatile boolean busy;
+    private volatile boolean waitingPermission; // ушли в «разрешить установку» — по возвращении ставим
+    private volatile boolean cancelled;         // человек отменил установку — сами больше не ставим
+    private volatile boolean fallbackTried;     // системная сессия не справилась — пробовали обычный установщик
     private final Pattern assetName = Pattern.compile(Pattern.quote(BuildConfig.UPDATE_PREFIX) + "1\\.0\\.(\\d+)\\.apk");
 
     // Можно ли ставить прямо сейчас (не в эфире) — задаёт приложение
@@ -190,6 +193,8 @@ public final class Updater {
         busy = true;
         state = "downloading";
         progress = 0;
+        cancelled = false;
+        fallbackTried = false;
         changed();
         new Thread(() -> {
             File dir = new File(context.getCacheDir(), "updates");
@@ -248,8 +253,16 @@ public final class Updater {
         return p.signatures;
     }
 
+    // Экран снова на виду: если ходили разрешать установку — продолжаем
+    public void resumed() {
+        if (waitingPermission && !needsPermission()) {
+            waitingPermission = false;
+            install();
+        }
+    }
+
     public void installIfIdle() {
-        if (!"ready".equals(state)) return;
+        if (!"ready".equals(state) || cancelled || waitingPermission) return;
         if (canInstallNow.getAsBoolean()) install();
         else main.postDelayed(this::installIfIdle, TimeUnit.MINUTES.toMillis(1)); // закончат эфир — поставим
     }
@@ -264,10 +277,24 @@ public final class Updater {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 
+    // Установка по кнопке — после «Отмены» тоже можно
+    public void installByUser() {
+        cancelled = false;
+        if ("confirm".equals(state)) state = "ready"; // окно Android закрыли без ответа — пробуем заново
+        if (needsPermission()) {
+            waitingPermission = true;
+            context.startActivity(permissionIntent());
+            return;
+        }
+        install();
+    }
+
     public void install() {
         File file = apk;
         if (file == null || !file.exists()) return;
+        if ("installing".equals(state) || "confirm".equals(state)) return; // уже ставим — ждём ответа Android
         if (needsPermission()) {
+            waitingPermission = true;
             state = "ready";
             error = "разрешите установку обновлений";
             changed();
@@ -280,6 +307,14 @@ public final class Updater {
         new Thread(() -> {
             try {
                 PackageInstaller pi = context.getPackageManager().getPackageInstaller();
+                // Недоделанные прошлые попытки мешают новой — закрываем
+                for (PackageInstaller.SessionInfo old : pi.getMySessions()) {
+                    try {
+                        pi.abandonSession(old.getSessionId());
+                    } catch (RuntimeException ignored) {
+                        // уже закрыта
+                    }
+                }
                 PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
                 params.setAppPackageName(context.getPackageName());
                 params.setSize(file.length());
@@ -299,16 +334,41 @@ public final class Updater {
                     session.commit(done.getIntentSender());
                 }
             } catch (Exception e) {
-                fail("не установить: " + e.getMessage());
+                fallbackInstall("не установить: " + e.getMessage());
             }
         }, "update-install").start();
+    }
+
+    // Запасной путь — обычный установщик APK, как при установке файла вручную
+    private void fallbackInstall(String why) {
+        File file = apk;
+        if (fallbackTried || file == null || !file.exists()) {
+            fail(why);
+            return;
+        }
+        fallbackTried = true;
+        Uri uri = androidx.core.content.FileProvider.getUriForFile(context, context.getPackageName() + ".updates", file);
+        Intent view = new Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        state = "confirm";
+        error = null;
+        changed();
+        main.post(() -> {
+            try {
+                context.startActivity(view);
+            } catch (RuntimeException e) {
+                // в фоне открыть нельзя — остаётся уведомление
+            }
+            notifyUser("Обновление " + latest + " готово", "Нажмите, чтобы установить", view);
+        });
     }
 
     // Итог установки (из UpdateReceiver)
     void installResult(int status, String message, Intent confirm) {
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION && confirm != null) {
             confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            state = "ready";
+            state = "confirm"; // ждём, что ответят в окне Android, — сами ничего не повторяем
             changed();
             try {
                 context.startActivity(confirm); // приложение на экране — Android сразу спросит «Обновить?»
@@ -316,8 +376,14 @@ public final class Updater {
                 // в фоне открыть окно нельзя
             }
             notifyUser("Обновление " + latest + " готово", "Нажмите, чтобы установить", confirm);
+        } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
+            cancelled = true; // сами больше не предлагаем — только по кнопке «Установить»
+            state = "ready";
+            error = "установку отменили — нажмите «Установить»";
+            changed();
         } else if (status != PackageInstaller.STATUS_SUCCESS) {
-            fail(status == PackageInstaller.STATUS_FAILURE_ABORTED ? "установку отменили" : "не установить: " + message);
+            state = "ready";
+            fallbackInstall("не установить: " + message);
         }
         // STATUS_SUCCESS — Android уже перезапускает приложение новой версией
     }

@@ -329,13 +329,14 @@
       case 'downloading': return `${cur} · скачиваю ${u.latest}: ${u.progress || 0}%`;
       case 'ready': return `${cur} · ${u.latest} скачана`;
       case 'installing': return `${cur} · ставлю ${u.latest}…`;
+      case 'confirm': return `${cur} · подтвердите установку ${u.latest}`;
       default: return cur;
     }
   }
 
   function updateButton(u) {
     if (u.state === 'available') return 'Скачать';
-    if (u.state === 'ready') return u.canInstall ? 'Установить' : 'Разрешить';
+    if (u.state === 'ready' || u.state === 'confirm') return u.canInstall ? 'Установить' : 'Разрешить';
     if (u.state === 'downloading' || u.state === 'installing') return '…';
     return 'Проверить';
   }

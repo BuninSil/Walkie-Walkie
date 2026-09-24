@@ -249,7 +249,7 @@ public class MainActivity extends ComponentActivity {
         // Пока приложение на экране, Android разрешает запустить фоновый сервис (с микрофоном — если разрешён)
         WalkieService.start(this);
         updater.checkSoon();
-        if (!updater.needsPermission()) updater.installIfIdle(); // вернулись из «разрешить установку»
+        updater.resumed(); // вернулись из «разрешить установку» — ставим (и только тогда)
         // Вернулись из настроек «поверх других приложений»
         if (wantBubble) {
             wantBubble = false;
@@ -433,8 +433,8 @@ public class MainActivity extends ComponentActivity {
                         updater.download();
                         break;
                     case "ready":
-                        if (updater.needsPermission()) startActivity(updater.permissionIntent());
-                        else updater.install();
+                    case "confirm":
+                        updater.installByUser();
                         break;
                     default:
                         updater.check(true);

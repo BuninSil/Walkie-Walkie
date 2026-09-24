@@ -123,7 +123,7 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
         station.addListener(this);
         updater.addListener(updateWatch);
         updater.checkSoon();
-        if (!updater.needsPermission()) updater.installIfIdle(); // вернулись из «разрешить установку»
+        updater.resumed(); // вернулись из «разрешить установку» — ставим (и только тогда)
         main.post(tick);
     }
 
@@ -244,9 +244,8 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
                         updater.download();
                         break;
                     case "ready":
-                        if (updater.needsPermission()) startActivity(updater.permissionIntent());
-                        else if (station.onAir) updater.installIfIdle();
-                        else updater.install();
+                    case "confirm":
+                        updater.installByUser();
                         break;
                     default:
                         updater.check(true);
