@@ -216,3 +216,50 @@ body {
 }
 .wk-sos[hidden] { display: none; }
 @keyframes wk-sos { 50% { opacity: 0.15; } }
+
+/* ───────── Кто в сети (👥 над рацией) ───────── */
+
+.wk-net-btn { position: relative; }
+.wk-net-btn.is-offline { opacity: 0.55; }
+
+.wk-net-count {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--label-alt, #ff9a3c);
+  color: #151515;
+  font: 700 9px/14px system-ui, sans-serif;
+  text-align: center;
+}
+
+.wk-net-count[hidden] { display: none; }
+
+.wk-person { justify-content: flex-start; }
+.wk-person .wk-row__text { flex: 1; min-width: 0; }
+.wk-person__name { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+
+.wk-person__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3ecf6e;
+  box-shadow: 0 0 6px rgba(62, 207, 110, 0.6);
+}
+
+.wk-person.is-talking .wk-person__dot { background: #ff3b2f; box-shadow: 0 0 8px #ff3b2f; animation: wk-talk 0.8s infinite; }
+.wk-person.is-talking small { color: #ff8a80; }
+
+@keyframes wk-talk { 50% { opacity: 0.4; } }
+
+.wk-person__freq {
+  flex: none;
+  color: var(--label-alt, #ff9a3c);
+  font: 700 13px ui-monospace, 'Roboto Mono', monospace;
+}
+
+.wk-net-note { margin: 14px 0 0; color: #8f8d86; font-size: 12.5px; line-height: 1.4; }
