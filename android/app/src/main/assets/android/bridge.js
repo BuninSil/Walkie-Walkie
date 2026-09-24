@@ -149,9 +149,152 @@
     }).observe(rig, { attributes: true, attributeFilter: ['class'] });
   }
 
+  /* ───────── SOS: долгое нажатие на ☼, как тревога на настоящей рации ─────────
+   * Фонарик мигает «··· ——— ···», тот же сигнал тоном уходит в эфир на рабочем канале
+   * (≈5 с сигнал, 5 с пауза — услышать ответ), на экране мигает SOS. Короткое нажатие на ☼ — стоп. */
+  const SOS_UNIT = 150; // мс — длина точки
+  const SOS_MS = 5100;  // один круг «SOS» с паузой между словами
+  const SOS_PAUSE = 5000;
+  // Вкл/выкл по порядку в единицах: S (···) пауза O (———) пауза S (···) и пауза до следующего круга
+  const SOS_PATTERN = [1, 1, 1, 1, 1, 3, 3, 1, 3, 1, 3, 3, 1, 1, 1, 1, 1, 7];
+
+  function setupSos() {
+    const key = document.getElementById('side2');
+    const lcd = document.getElementById('lcd');
+    const w = () => window.radioWidget;
+    if (!key || !lcd) return;
+    const label = document.createElement('div');
+    label.className = 'wk-sos';
+    label.textContent = 'SOS';
+    label.hidden = true;
+    lcd.append(label);
+
+    let holdTimer = null;
+    let swallowClick = false;
+    let active = false;
+    let timers = [];
+    let tone = null;
+
+    const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+    const torchPhone = (on) => shell?.torch?.(on);
+
+    function flashLoop() {
+      if (!active) return;
+      let t = 0;
+      SOS_PATTERN.forEach((units, i) => {
+        const on = i % 2 === 0;
+        later(() => active && torchPhone(on), t);
+        t += units * SOS_UNIT;
+      });
+      later(flashLoop, t);
+    }
+
+    // Тон SOS: в эфир (через передатчик рации) и тихо — в свой динамик
+    function playTone(ctx, toAir) {
+      const osc = ctx.createOscillator();
+      const air = ctx.createGain();
+      const local = ctx.createGain();
+      osc.frequency.value = 1000;
+      air.gain.value = 0;
+      local.gain.value = 0;
+      osc.connect(air);
+      osc.connect(local);
+      if (toAir) air.connect(toAir);
+      local.connect(ctx.destination);
+      let t = ctx.currentTime + 0.05;
+      SOS_PATTERN.forEach((units, i) => {
+        const on = i % 2 === 0 && i < SOS_PATTERN.length - 1;
+        air.gain.setValueAtTime(on ? 0.45 : 0, t);
+        local.gain.setValueAtTime(on ? 0.08 : 0, t);
+        t += (units * SOS_UNIT) / 1000;
+      });
+      osc.start();
+      osc.stop(t);
+      return osc;
+    }
+
+    function airCycle() {
+      if (!active) return;
+      const r = w();
+      if (!r?.radio.power) return stop();
+      window.__walkieHotkey?.('ptt-down'); // как горячая клавиша на ПК — рация выходит в эфир
+      let waited = 0;
+      const go = () => {
+        if (!active) return;
+        const b = r.broadcaster;
+        if (!r.tx.active || !b?.ctx) {
+          if ((waited += 100) > 3000) return later(airCycle, SOS_PAUSE); // нет связи/микрофона — попробуем позже
+          return later(go, 100);
+        }
+        b.micGain?.gain.setValueAtTime(0, b.ctx.currentTime); // голос не мешает сигналу
+        tone = playTone(b.ctx, b.txIn);
+        later(() => {
+          if (b.micGain) b.micGain.gain.setValueAtTime(b.micLevel ?? 1, b.ctx.currentTime);
+          window.__walkieHotkey?.('ptt-up');
+          later(airCycle, SOS_PAUSE);
+        }, SOS_MS + 100);
+      };
+      go();
+    }
+
+    function start() {
+      const r = w();
+      if (active || !r?.radio.power) return;
+      active = true;
+      label.hidden = false;
+      shell?.vibrate?.();
+      flashLoop();
+      airCycle();
+    }
+
+    function stop() {
+      if (!active) return;
+      active = false;
+      timers.forEach(clearTimeout);
+      timers = [];
+      try {
+        tone?.stop();
+      } catch {
+        /* уже остановлен */
+      }
+      tone = null;
+      const r = w();
+      const b = r?.broadcaster;
+      if (b?.micGain && b.ctx) b.micGain.gain.setValueAtTime(b.micLevel ?? 1, b.ctx.currentTime);
+      if (r?.tx.active && r.tx.source === 'hotkey') window.__walkieHotkey?.('ptt-up');
+      label.hidden = true;
+      torchPhone(document.getElementById('rig')?.classList.contains('torch-on') ?? false); // как у рации
+    }
+
+    key.addEventListener('pointerdown', () => {
+      clearTimeout(holdTimer);
+      if (active) return;
+      holdTimer = setTimeout(() => {
+        swallowClick = true; // это было долгое нажатие — фонарик рации не переключаем
+        start();
+      }, 900);
+    });
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) key.addEventListener(t, () => clearTimeout(holdTimer));
+    // Щелчок после долгого нажатия и щелчок-«стоп» не должны переключать фонарик рации
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest?.('#side2')) return;
+      if (swallowClick || active) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (!swallowClick) stop();
+        swallowClick = false;
+      }
+    }, true);
+    // Выключили рацию — тревогу тоже
+    new MutationObserver(() => {
+      if (document.getElementById('rig')?.dataset.power === 'off') stop();
+    }).observe(document.getElementById('rig'), { attributes: true, attributeFilter: ['data-power'] });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     fit();
     setupTorch();
+    setupSos();
     setupTextEntry();
     setupLook();
     setupMicRelease();
