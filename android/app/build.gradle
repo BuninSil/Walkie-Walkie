@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.radio.walkie'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'ru.radio.walkie'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // Рация — это файлы ПК-рации как есть: ../radio-walkie/web попадает в APK без изменений
+    sourceSets {
+        main.assets.srcDirs += layout.buildDirectory.dir('generated/walkie-web')
+    }
+}
+
+def copyWalkieWeb = tasks.register('copyWalkieWeb', Sync) {
+    from rootProject.file('../radio-walkie/web')
+    into layout.buildDirectory.dir('generated/walkie-web/web')
+}
+preBuild.dependsOn copyWalkieWeb
+
+dependencies {
+    implementation 'androidx.activity:activity:1.11.0'
+    implementation 'androidx.core:core:1.17.0'
+    implementation 'androidx.webkit:webkit:1.14.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}

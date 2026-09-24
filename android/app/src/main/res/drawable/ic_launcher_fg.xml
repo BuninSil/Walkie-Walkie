@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок приложения: рация с антенной и оранжевым экраном -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#3a3b42" android:pathData="M40,24h6v16h-6z" />
+    <path android:fillColor="#2e2f35" android:pathData="M40,38h28a4,4 0,0 1,4 4v38a4,4 0,0 1,-4 4H40a4,4 0,0 1,-4 -4V42a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#c6d6b2" android:pathData="M41,44h26v14H41z" />
+    <path android:fillColor="#ff9a3c" android:pathData="M44,62h5v4h-5zM51.5,62h5v4h-5zM59,62h5v4h-5zM44,69h5v4h-5zM51.5,69h5v4h-5zM59,69h5v4h-5zM44,76h5v4h-5zM51.5,76h5v4h-5zM59,76h5v4h-5z" />
+</vector>

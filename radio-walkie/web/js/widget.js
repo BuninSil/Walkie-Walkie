@@ -10,7 +10,6 @@
 
 (() => {
   const desktop = window.radioDesktop ?? null;
-  const mobile = window.radioMobile ?? null; // рация для Android: сервер выбирают сами, своего сервера нет
   const STORE = 'radio.widget.v1';
   const APP_STORE = 'radio.v1'; // общее с большим окном: связка ключей, сервер
 
@@ -233,7 +232,6 @@
       render();
     },
     message: onServerMessage,
-    error: (reason) => flash(`НЕТ СВЯЗИ: ${reason}`, 3000),
     audio(id, packet) {
       if (radio.power) liveById.get(id)?.receive(packet, scrKeyring);
     },
@@ -362,12 +360,6 @@
   }
 
   async function connectAtStart() {
-    if (mobile) {
-      const s = serverInfo();
-      if (s.address && s.auto !== false) connectTo(s.address);
-      else if (!s.address) flash('MENU 12 — СЕРВЕР', 3000);
-      return;
-    }
     if (!desktop) {
       link.connect(); // в браузере сервер — тот, что отдал страницу
       return;
@@ -618,7 +610,7 @@
       show: (i) => (ABR_TIMES[i] ? `${ABR_TIMES[i]} С` : 'ВСЕГДА'), apply: (i) => { cfg.abr = i; } },
     { code: 'NAME', hint: 'ПОЗЫВНОЙ В ЭФИРЕ', text: true, get: () => cfg.name, show: (v) => v,
       apply: (text) => { cfg.name = text.slice(0, 24); registerStation(); } },
-    { code: 'SERVER', hint: 'АДРЕС СЕРВЕРА', app: true,
+    { code: 'SERVER', hint: 'АДРЕС СЕРВЕРА', desktop: true,
       options: () => [...(serverInfo().recent ?? []), NEW],
       get: () => (hostInfo ? 'СВОЙ' : serverInfo().address ?? ''),
       show: (v) => (v === NEW ? 'НОВЫЙ…' : v || 'НЕТ'),
@@ -627,24 +619,20 @@
         if (v === NEW) startEntry('SERVER', '', go);
         else go(v);
       } },
-    { code: 'AUTO', hint: 'ПОДКЛЮЧАТЬСЯ ПРИ ЗАПУСКЕ', app: true, options: () => [false, true],
+    { code: 'AUTO', hint: 'ПОДКЛЮЧАТЬСЯ ПРИ ЗАПУСКЕ', desktop: true, options: () => [false, true],
       get: () => serverInfo().auto !== false, show: onOff,
       apply: (v) => updateApp((d) => { d.server = { ...(d.server ?? {}), auto: v }; }) },
     { code: 'HOST', hint: 'СВОЙ СЕРВЕР', desktop: true, options: () => [false, true], get: () => Boolean(hostInfo),
       show: onOff, apply: (v) => (v ? startHosting() : hostInfo && stopHosting()) },
     { code: 'TOP', hint: 'ПОВЕРХ ВСЕХ ОКОН', desktop: true, options: () => [false, true], get: () => onTop, show: onOff,
       apply: (v) => setOnTop(v) },
-  ].filter((item) => (!item.desktop || desktop) && (!item.app || desktop || mobile));
+  ].filter((item) => !item.desktop || desktop);
 
   let menu = null; // { index, editing, options, pick, num }
 
   function menuHint(item) {
     if (item.code === 'HOST' && hostInfo) return `ДРУЗЬЯМ: ${hostAddress(hostInfo)}`;
-    if (item.code === 'SERVER') {
-      if (link.online) return 'НА СВЯЗИ';
-      if (!link.available) return 'НЕ ПОДКЛЮЧЕНО';
-      return link.error ? `ОШИБКА: ${link.error}` : 'ПОДКЛЮЧАЮСЬ…';
-    }
+    if (item.code === 'SERVER') return link.online ? 'НА СВЯЗИ' : link.available ? 'ПОДКЛЮЧАЮСЬ…' : 'НЕ ПОДКЛЮЧЕНО';
     return item.hint;
   }
 
@@ -698,17 +686,7 @@
   function startEntry(code, initial, done) {
     entry = { code, done };
     input.value = initial ?? '';
-    input.inputMode = code === 'SERVER' ? 'url' : 'text'; // на телефоне — клавиатура с точкой и двоеточием
     input.focus();
-    render();
-  }
-
-  // Символ с кнопок рации (null — стереть последний)
-  function typeEntry(ch) {
-    const text = input.value;
-    if (ch === null) input.value = text.slice(0, -1);
-    else if (text.length < input.maxLength) input.value = text + ch;
-    keyBeep();
     render();
   }
 
@@ -728,7 +706,7 @@
 
   input.addEventListener('input', render);
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.keyCode === 13) { // экранные клавиатуры Android не всегда присылают key
+    if (e.key === 'Enter') {
       e.preventDefault();
       finishEntry(true);
     } else if (e.key === 'Escape') {
@@ -858,11 +836,8 @@
     if (!radio.power) return;
     wake();
     if (entry) {
-      // Текст можно набрать и кнопками рации: цифры, ✱ — точка (для адреса), ▼ — стереть
       if (key === 'menu') finishEntry(true);
       else if (key === 'exit') finishEntry(false);
-      else if (/^\d$/.test(key) || (key === 'star' && !long)) typeEntry(key === 'star' ? '.' : key);
-      else if (key === 'down') typeEntry(null);
       return;
     }
     if (key === 'f' && long) {
@@ -1258,7 +1233,6 @@
 
     // Основной экран, меню или ввод текста
     const inMenu = Boolean(menu) || Boolean(entry);
-    document.body.classList.toggle('is-entry', Boolean(entry));
     $('screen-main').hidden = inMenu;
     $('screen-menu').hidden = !inMenu;
     if (entry) {
@@ -1269,7 +1243,7 @@
       setText(value, input.value);
       value.classList.add('is-entry');
       value.classList.remove('is-editing');
-      setText($('menu-hint'), `${item?.hint ?? ''} · ${mobile ? 'MENU' : 'ENTER'} — ОК`);
+      setText($('menu-hint'), `${item?.hint ?? ''} · ENTER — ОК`);
     } else if (menu) {
       const item = MENU[menu.index];
       setText($('menu-num'), String(menu.index + 1).padStart(2, '0'));
@@ -1279,7 +1253,7 @@
       setText(value, shown);
       value.classList.toggle('is-editing', menu.editing);
       value.classList.remove('is-entry');
-      setText($('menu-hint'), menu.editing && menu.options[menu.pick] === NEW ? 'MENU — ВВЕСТИ' : menuHint(item));
+      setText($('menu-hint'), menuHint(item));
     } else {
       lineView('A', rx);
       lineView('B', rx);

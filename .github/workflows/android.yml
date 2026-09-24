@@ -14,12 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: android/package-lock.json
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -28,13 +22,9 @@ jobs:
 
       - name: Собрать рацию для Android
         working-directory: android
-        run: |
-          npm ci
-          npm run sync
-          cd android
-          ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
           name: walkie-android-apk
-          path: android/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Рация</string>
-    <string name="title_activity_main">Рация</string>
-    <string name="package_name">ru.radio.walkie</string>
-    <string name="custom_url_scheme">ru.radio.walkie</string>
-</resources>
