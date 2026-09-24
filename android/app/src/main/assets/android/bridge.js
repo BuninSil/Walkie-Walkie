@@ -661,6 +661,8 @@
       (on) => shell?.setOption?.('bubble', on)));
     sec.append(toggle('На экране блокировки', 'Кнопка PTT и рация без разблокировки', native.lockScreen !== false,
       (on) => shell?.setOption?.('lockScreen', on)));
+    sec.append(toggle('Кто вышел в сеть', 'Уведомление, когда кто-то включил рацию или станция вышла в эфир', native.joinAlerts !== false,
+      (on) => shell?.setOption?.('joinAlerts', on)));
     sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,
       (on) => shell?.setOption?.('keepScreen', on)));
     sheet.append(sec);
@@ -829,6 +831,32 @@
     row.append(el('i', 'wk-person__dot'), text, freq);
     return row;
   }
+
+  // «БУНИН в сети» — плашка сверху, пока рация открыта (из Java, вместе с уведомлением Android).
+  // Нажать — перейти на его частоту.
+  let joinBox = null;
+  window.__walkieJoined = (name, freq) => {
+    if (!joinBox) {
+      joinBox = el('div', 'wk-joins');
+      document.body.append(joinBox);
+    }
+    const fm = freq > 0 && freq < 300;
+    const item = el('button', 'wk-join');
+    item.type = 'button';
+    item.append(el('b', null, `${fm ? '📻' : '📡'} ${name}`), el('span', null, `${fm ? 'в эфире' : 'в сети'} · ${fmtFreq(freq)}${onMyChannel(freq) ? ' · ваш канал' : ''}`));
+    const drop = () => {
+      item.classList.add('is-gone');
+      setTimeout(() => item.remove(), 250);
+    };
+    item.addEventListener('click', () => {
+      const err = onMyChannel(freq) ? null : tuneTo(freq);
+      if (!err) shell?.vibrate?.();
+      drop();
+    });
+    joinBox.append(item);
+    while (joinBox.children.length > 3) joinBox.firstChild.remove();
+    setTimeout(drop, 4500);
+  };
 
   let netMsg = null;
   function netNote(text) {

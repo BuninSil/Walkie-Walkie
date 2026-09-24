@@ -301,6 +301,12 @@ public class MainActivity extends ComponentActivity {
         if (a != null) a.js("window.__walkieHotkey&&window.__walkieHotkey(" + JSONObject.quote(action) + ")");
     }
 
+    // Плашка «вышел в сеть» в самой рации (рация открыта)
+    static void joined(String name, double freq) {
+        MainActivity a = instance;
+        if (a != null) a.js("window.__walkieJoined&&window.__walkieJoined(" + JSONObject.quote(name) + "," + freq + ")");
+    }
+
     static void quitFromOutside() {
         MainActivity a = instance;
         if (a != null) a.finishAndRemoveTask();
@@ -330,6 +336,7 @@ public class MainActivity extends ComponentActivity {
             o.put("bubble", WalkieService.bubbleEnabled(this) && Settings.canDrawOverlays(this));
             o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
             o.put("lockScreen", WalkieService.lockScreenEnabled(this));
+            o.put("joinAlerts", WalkieService.joinAlertsEnabled(this));
             o.put("version", BuildConfig.VERSION_NAME);
             o.put("update", updater.toJson());
         } catch (Exception ignored) {
@@ -518,6 +525,8 @@ public class MainActivity extends ComponentActivity {
                 } else if ("lockScreen".equals(name)) {
                     prefs.edit().putBoolean(WalkieService.PREF_LOCK, on).apply();
                     setShowWhenLocked(on);
+                } else if ("joinAlerts".equals(name)) {
+                    prefs.edit().putBoolean(WalkieService.PREF_JOINS, on).apply();
                 } else if ("keepScreen".equals(name)) {
                     prefs.edit().putBoolean(PREF_KEEP_SCREEN, on).apply();
                     applyKeepScreen();
