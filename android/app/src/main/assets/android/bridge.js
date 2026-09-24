@@ -135,8 +135,23 @@
   }
   window.addEventListener('resize', fit); // и под открытую клавиатуру: экран рации остаётся виден
 
+  // Фонарик рации (боковая кнопка ☼) включает и настоящий фонарик телефона
+  function setupTorch() {
+    const rig = document.getElementById('rig');
+    if (!rig || !shell?.torch) return;
+    let on = false;
+    new MutationObserver(() => {
+      const now = rig.classList.contains('torch-on');
+      if (now !== on) {
+        on = now;
+        shell.torch(on);
+      }
+    }).observe(rig, { attributes: true, attributeFilter: ['class'] });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     fit();
+    setupTorch();
     setupTextEntry();
     setupLook();
     setupMicRelease();

@@ -336,6 +336,32 @@ public class MainActivity extends ComponentActivity {
         return o.toString();
     }
 
+    private String torchCamera; // камера со вспышкой; "" — вспышки нет
+    private boolean torchOn;
+
+    private void setTorch(boolean on) {
+        android.hardware.camera2.CameraManager cm =
+            (android.hardware.camera2.CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            if (torchCamera == null) {
+                torchCamera = "";
+                for (String id : cm.getCameraIdList()) {
+                    Boolean flash = cm.getCameraCharacteristics(id)
+                        .get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                    if (Boolean.TRUE.equals(flash)) {
+                        torchCamera = id;
+                        break;
+                    }
+                }
+            }
+            if (torchCamera.isEmpty() || on == torchOn) return;
+            cm.setTorchMode(torchCamera, on);
+            torchOn = on;
+        } catch (Exception ignored) {
+            // камеру занял кто-то другой или вспышки нет — фонарик останется только на рации
+        }
+    }
+
     private void applyKeepScreen() {
         if (prefs.getBoolean(PREF_KEEP_SCREEN, false)) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -413,6 +439,7 @@ public class MainActivity extends ComponentActivity {
         updater.removeListener(updateWatch);
         if (textDialog != null) textDialog.dismiss();
         if (audio != null) audio.unregisterAudioDeviceCallback(headsetWatch);
+        setTorch(false);
         air.closeAll();
         if (isFinishing()) WalkieService.stop(this);
         web.destroy();
@@ -438,6 +465,12 @@ public class MainActivity extends ComponentActivity {
         @JavascriptInterface
         public void editText(String code, String initial) {
             runOnUiThread(() -> textDialog(code, initial));
+        }
+
+        // Фонарик рации ☼ — настоящий фонарик телефона
+        @JavascriptInterface
+        public void torch(boolean on) {
+            runOnUiThread(() -> setTorch(on));
         }
 
         @JavascriptInterface
