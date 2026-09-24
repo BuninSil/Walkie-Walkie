@@ -20,9 +20,10 @@ class AirLink {
     this.tuneTimer = null;
   }
 
-  // Сервер, который отдал эту страницу (для приложения его нет — адрес выбирают)
+  // Сервер, который отдал эту страницу (для приложений на ПК и Android его нет — адрес выбирают)
   static pageServer() {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return null;
+    if (window.radioMobile) return null; // на Android страница своя, из приложения, а не с сервера
     return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
   }
 

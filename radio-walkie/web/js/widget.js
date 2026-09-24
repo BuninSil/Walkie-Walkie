@@ -10,6 +10,7 @@
 
 (() => {
   const desktop = window.radioDesktop ?? null;
+  const mobile = window.radioMobile ?? null; // рация для Android: сервер выбирают сами, своего сервера нет
   const STORE = 'radio.widget.v1';
   const APP_STORE = 'radio.v1'; // общее с большим окном: связка ключей, сервер
 
@@ -360,6 +361,12 @@
   }
 
   async function connectAtStart() {
+    if (mobile) {
+      const s = serverInfo();
+      if (s.address && s.auto !== false) connectTo(s.address);
+      else if (!s.address) flash('MENU 12 — СЕРВЕР', 3000);
+      return;
+    }
     if (!desktop) {
       link.connect(); // в браузере сервер — тот, что отдал страницу
       return;
@@ -610,7 +617,7 @@
       show: (i) => (ABR_TIMES[i] ? `${ABR_TIMES[i]} С` : 'ВСЕГДА'), apply: (i) => { cfg.abr = i; } },
     { code: 'NAME', hint: 'ПОЗЫВНОЙ В ЭФИРЕ', text: true, get: () => cfg.name, show: (v) => v,
       apply: (text) => { cfg.name = text.slice(0, 24); registerStation(); } },
-    { code: 'SERVER', hint: 'АДРЕС СЕРВЕРА', desktop: true,
+    { code: 'SERVER', hint: 'АДРЕС СЕРВЕРА', app: true,
       options: () => [...(serverInfo().recent ?? []), NEW],
       get: () => (hostInfo ? 'СВОЙ' : serverInfo().address ?? ''),
       show: (v) => (v === NEW ? 'НОВЫЙ…' : v || 'НЕТ'),
@@ -619,14 +626,14 @@
         if (v === NEW) startEntry('SERVER', '', go);
         else go(v);
       } },
-    { code: 'AUTO', hint: 'ПОДКЛЮЧАТЬСЯ ПРИ ЗАПУСКЕ', desktop: true, options: () => [false, true],
+    { code: 'AUTO', hint: 'ПОДКЛЮЧАТЬСЯ ПРИ ЗАПУСКЕ', app: true, options: () => [false, true],
       get: () => serverInfo().auto !== false, show: onOff,
       apply: (v) => updateApp((d) => { d.server = { ...(d.server ?? {}), auto: v }; }) },
     { code: 'HOST', hint: 'СВОЙ СЕРВЕР', desktop: true, options: () => [false, true], get: () => Boolean(hostInfo),
       show: onOff, apply: (v) => (v ? startHosting() : hostInfo && stopHosting()) },
     { code: 'TOP', hint: 'ПОВЕРХ ВСЕХ ОКОН', desktop: true, options: () => [false, true], get: () => onTop, show: onOff,
       apply: (v) => setOnTop(v) },
-  ].filter((item) => !item.desktop || desktop);
+  ].filter((item) => (!item.desktop || desktop) && (!item.app || desktop || mobile));
 
   let menu = null; // { index, editing, options, pick, num }
 

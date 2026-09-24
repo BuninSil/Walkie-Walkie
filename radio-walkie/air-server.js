@@ -42,10 +42,14 @@ function cleanName(value) {
   return text.slice(0, NAME_LEN) || 'БЕЗ ПОЗЫВНОГО';
 }
 
-// Подключаться можно со страницы этого же сервера или из приложения (не http/https)
+// Рация для Android открывает страницу с http://localhost (без порта) — это приложение, а не чужой сайт
+const APP_ORIGINS = new Set(['http://localhost', 'https://localhost']);
+
+// Подключаться можно со страницы этого же сервера или из приложения (не http/https, либо Android)
 function originAllowed(req) {
   const origin = req.headers.origin;
   if (!origin) return true;
+  if (APP_ORIGINS.has(origin)) return true;
   try {
     const url = new URL(origin);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;

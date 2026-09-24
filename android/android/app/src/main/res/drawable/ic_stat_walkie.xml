@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок в строке состояния: силуэт рации с антенной -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,1h1.6v5H16a2,2 0,0 1,2 2v13a2,2 0,0 1,-2 2H8a2,2 0,0 1,-2 -2V8a2,2 0,0 1,2 -2zM8.5,8.5v4h7v-4zM9,15v1.5h1.5V15zM11.25,15v1.5h1.5V15zM13.5,15v1.5H15V15zM9,18v1.5h1.5V18zM11.25,18v1.5h1.5V18zM13.5,18v1.5H15V18z" />
+</vector>

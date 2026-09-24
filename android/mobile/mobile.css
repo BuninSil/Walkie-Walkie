@@ -1,0 +1,26 @@
+/* Рация на экране телефона: тёмный фон, по центру, без прокрутки и выделения */
+
+html,
+body {
+  height: 100%;
+  background: radial-gradient(ellipse at 50% 35%, #23252a 0%, #0d0e10 70%);
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rig {
+  flex: none;
+}
+
+/* Полоска поверх игр — только на ПК */
+.bar {
+  display: none !important;
+}

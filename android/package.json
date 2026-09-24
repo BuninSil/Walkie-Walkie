@@ -1,0 +1,19 @@
+{
+  "name": "radio-walkie-android",
+  "version": "0.1.0",
+  "description": "Рация для Android: та же рация, что на ПК, подключается к серверу эфира ПК-приложения",
+  "private": true,
+  "scripts": {
+    "web": "node scripts/build-web.js",
+    "sync": "npm run web && cap sync android",
+    "open": "cap open android",
+    "apk": "npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
