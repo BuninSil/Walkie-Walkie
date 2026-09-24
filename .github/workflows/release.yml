@@ -1,0 +1,38 @@
+name: Release
+
+# Подписанный APK собирается и подписывается вне CI (ключа в репозитории нет).
+# Чтобы выпустить релиз, в ветку apk-release пушится коммит с Walkie-1.0.N.apk и notes.md —
+# отсюда создаётся релиз v1.0.N с этим APK, после чего ветка удаляется.
+
+on:
+  push:
+    branches: [apk-release]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Создать релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=$(ls Walkie-*.apk | head -1)
+          [ -f "$apk" ] && [ -f notes.md ] || { echo "::error::Нужны Walkie-1.0.N.apk и notes.md"; exit 1; }
+          version=${apk#Walkie-}; version=${version%.apk}
+          target=$(git rev-parse HEAD~1)
+          gh release create "v$version" "$apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$target" \
+            --title "Рация $version" \
+            --notes-file notes.md \
+            --latest
+
+      - name: Убрать ветку apk-release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: git push origin --delete apk-release || true
