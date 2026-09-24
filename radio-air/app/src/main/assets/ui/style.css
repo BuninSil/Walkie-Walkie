@@ -20,9 +20,9 @@
 
 html, body {
   margin: 0;
-  background: var(--bg);
+  background: var(--app-bg, var(--bg));
   color: var(--text);
-  font: 15px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 15px/1.4 var(--ui-font, system-ui), 'Segoe UI', Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -90,9 +90,9 @@ button, input { font: inherit; color: inherit; }
 
 .display {
   padding: 14px 14px 12px;
-  border: 1px solid #1d3b33;
+  border: 1px solid var(--disp-edge, #1d3b33);
   border-radius: 12px;
-  background: radial-gradient(ellipse at 30% 0%, #10261f, #07110e 70%);
+  background: var(--disp-bg, radial-gradient(ellipse at 30% 0%, #10261f, #07110e 70%));
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
   font-family: var(--mono);
 }
@@ -108,7 +108,7 @@ button, input { font: inherit; color: inherit; }
   font-size: 46px;
   font-weight: 700;
   line-height: 1;
-  text-shadow: 0 0 14px rgba(94, 240, 196, 0.45);
+  text-shadow: 0 0 calc(14px * var(--glow, 1)) color-mix(in srgb, var(--teal) 45%, transparent);
 }
 
 .freq small {
@@ -121,9 +121,9 @@ button, input { font: inherit; color: inherit; }
 
 .badges b {
   padding: 2px 5px;
-  border: 1px solid #1d3b33;
+  border: 1px solid var(--disp-edge, #1d3b33);
   border-radius: 4px;
-  color: #1f4a3e;
+  color: color-mix(in srgb, var(--teal) 25%, transparent);
   font-size: 9.5px;
 }
 
@@ -143,7 +143,7 @@ button, input { font: inherit; color: inherit; }
 
 .now {
   margin-top: 4px;
-  color: #a9e8d4;
+  color: color-mix(in srgb, var(--teal) 70%, var(--disp-ink-mix, #ffffff));
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -169,7 +169,7 @@ button, input { font: inherit; color: inherit; }
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  color: #5d9e8b;
+  color: color-mix(in srgb, var(--teal) 60%, transparent);
   font-size: 11px;
 }
 

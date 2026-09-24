@@ -6,8 +6,8 @@ android {
     namespace 'ru.radio.walkie'
     compileSdk 36
 
-    // Номер версии растёт с каждой сборкой в GitHub Actions — Android ставит новую поверх старой
-    def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '0') as int
+    // Номер сборки: WALKIE_BUILD_NUMBER задаёт «Выпустить релиз» (последний релиз + 1), иначе — номер запуска CI
+    def buildNumber = (System.getenv('WALKIE_BUILD_NUMBER') ?: System.getenv('GITHUB_RUN_NUMBER') ?: '0') as int
 
     defaultConfig {
         applicationId 'ru.radio.walkie'

@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -50,6 +52,14 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
             getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             DocumentFile dir = DocumentFile.fromTreeUri(this, uri);
             station.setFolder(uri, dir != null && dir.getName() != null ? dir.getName() : "Музыка");
+        });
+
+    // Картинка для фона приложения или дисплея — из галереи (🎨 → Фон / Дисплей)
+    private ValueCallback<Uri[]> pendingFile;
+    private final ActivityResultLauncher<String> pickImage = registerForActivityResult(
+        new ActivityResultContracts.GetContent(), (uri) -> {
+            if (pendingFile != null) pendingFile.onReceiveValue(uri != null ? new Uri[] { uri } : null);
+            pendingFile = null;
         });
 
     private final ActivityResultLauncher<String> askMic = registerForActivityResult(
@@ -108,6 +118,16 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return !HOST.equals(request.getUrl().getHost());
+            }
+        });
+
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (pendingFile != null) pendingFile.onReceiveValue(null);
+                pendingFile = callback;
+                pickImage.launch("image/*");
+                return true;
             }
         });
 

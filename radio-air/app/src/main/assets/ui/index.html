@@ -5,11 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Радиостанция</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="look.css">
+  <script src="look.js"></script>
 </head>
 <body>
   <header class="top">
     <div class="brand">РАДИО<span>СТАНЦИЯ</span></div>
-    <div class="lamp" id="lamp"><i></i><span id="lamp-text">НЕ В ЭФИРЕ</span></div>
+    <div class="top__right">
+      <button class="look-btn" id="look-btn" type="button" aria-label="Внешний вид">🎨</button>
+      <div class="lamp" id="lamp"><i></i><span id="lamp-text">НЕ В ЭФИРЕ</span></div>
+    </div>
   </header>
 
   <!-- Дисплей: частота, трек, уровень -->

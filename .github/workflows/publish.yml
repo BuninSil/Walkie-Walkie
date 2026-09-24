@@ -1,0 +1,115 @@
+name: Выпустить релиз
+
+# Кнопка для выпуска обновления: Actions → «Выпустить релиз» → Run workflow.
+# Собирает рацию или станцию из выбранной ветки, подписывает постоянным ключом
+# из секретов и публикует релиз — приложения на телефонах сами его найдут и поставят.
+# Номер версии: последний релиз этого приложения + 1 (Walkie-1.0.N.apk / Station-1.0.N.apk).
+# Подробности — RELEASING.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Что выпускаем'
+        type: choice
+        options: [walkie, station]
+        default: walkie
+      changes:
+        description: 'Что нового (пункты через ;  например: Починил звук; Новая тема)'
+        type: string
+        required: true
+
+# Два выпуска одного приложения одновременно получили бы один номер
+concurrency:
+  group: publish-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Что собираем
+        run: |
+          if [ "${{ inputs.app }}" = station ]; then
+            echo "DIR=radio-air"  >> "$GITHUB_ENV"; echo "PREFIX=Station-"   >> "$GITHUB_ENV"
+            echo "TAG=station-v"  >> "$GITHUB_ENV"; echo "TITLE=Радиостанция" >> "$GITHUB_ENV"
+          else
+            echo "DIR=android"    >> "$GITHUB_ENV"; echo "PREFIX=Walkie-"    >> "$GITHUB_ENV"
+            echo "TAG=v"          >> "$GITHUB_ENV"; echo "TITLE=Рация"        >> "$GITHUB_ENV"
+          fi
+
+      # Без постоянного ключа выпускать нельзя: APK с другим ключом не встанет поверх старого
+      - name: Ключ подписи
+        env:
+          KEYSTORE_BASE64: ${{ secrets.WALKIE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.WALKIE_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::В репозитории нет секретов WALKIE_KEYSTORE_BASE64 и WALKIE_KEYSTORE_PASSWORD. Их один раз добавляет владелец — см. RELEASING.md, шаг 1."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/walkie.p12"
+          echo "WALKIE_KEYSTORE_FILE=$RUNNER_TEMP/walkie.p12" >> "$GITHUB_ENV"
+          echo "WALKIE_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          fp=$(keytool -list -v -keystore "$RUNNER_TEMP/walkie.p12" -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" | grep -m1 'SHA256:' | awk '{print $2}')
+          echo "Отпечаток ключа: $fp"
+          # Тот самый ключ, которым подписаны все выпуски. Другой — телефоны не примут обновление.
+          if [ "$fp" != "E7:DD:C0:8B:94:FE:2D:00:DF:BF:49:26:2E:2F:DA:A5:D0:85:80:1B:D2:DA:8E:8F:42:09:C4:73:51:2C:73:B2" ]; then
+            echo "::error::В секретах не тот ключ подписи ($fp). Нужен walkie-release.p12 — см. RELEASING.md."
+            exit 1
+          fi
+
+      - name: Номер версии
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[].assets[].name' \
+            | sed -n "s/^${PREFIX}1\.0\.\([0-9]*\)\.apk$/\1/p" | sort -n | tail -1)
+          n=$(( ${last:-0} + 1 ))
+          echo "Последний выпуск: 1.0.${last:-нет} → новый 1.0.$n"
+          echo "N=$n" >> "$GITHUB_ENV"
+          echo "WALKIE_BUILD_NUMBER=$n" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Собрать и подписать
+        working-directory: ${{ env.DIR }}
+        run: |
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/${PREFIX}1.0.${N}.apk"
+
+      - name: Проверить подпись
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs "${PREFIX}1.0.${N}.apk" | tee certs.txt
+          grep -qi 'e7ddc08b94fe2d00dfbf49262e2fdaa5d085801bd2da8e8f4209c473512c73b2' certs.txt \
+            || { echo "::error::APK подписан не тем ключом"; exit 1; }
+
+      # «## Новое в 1.0.N» + пункты — это приложение показывает плашкой «Что нового» после обновления
+      - name: Опубликовать релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGES: ${{ inputs.changes }}
+        run: |
+          {
+            echo "## Новое в 1.0.$N"
+            echo
+            printf '%s\n' "$CHANGES" | tr ';' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed '/^$/d; s/^[-•*][[:space:]]*//; s/^/- /'
+            echo
+            echo "Ставится обновлением поверх — приложение само найдёт и установит его."
+          } > notes.md
+          cat notes.md
+          gh release create "${TAG}1.0.${N}" "${PREFIX}1.0.${N}.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE 1.0.$N" \
+            --notes-file notes.md \
+            --latest

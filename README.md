@@ -284,12 +284,15 @@ android/                 Рация для Android
 | Android (рация) | `cd android && ./gradlew assembleRelease` (JDK 17+, Android SDK или Android Studio) |
 | Android (станция) | `cd radio-air && ./gradlew assembleRelease` |
 | CI | Workflow «Android APK», «Station APK» и «Windows installer» при каждом пуше |
+| Релиз | Actions → «Выпустить релиз» — см. [RELEASING.md](RELEASING.md) |
 
 Android подробнее — в [android/README.md](android/README.md).
 
 ---
 
 ## Подпись и обновления Android
+
+**Как выпустить обновление самому** (кнопка «Выпустить релиз» в Actions, секреты, правила версий) — в [RELEASING.md](RELEASING.md).
 
 **Автообновление.** Рация и радиостанция сами проверяют [релизы](https://github.com/BuninSil/Walkie-Walkie/releases)
 (при каждом входе в приложение и раз в 6 часов в фоне), скачивают новую версию, проверяют, что это то же приложение с тем же
