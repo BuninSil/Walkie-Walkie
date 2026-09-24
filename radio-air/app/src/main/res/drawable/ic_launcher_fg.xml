@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок: радиоприёмник со шкалой и антенной -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:strokeColor="#b9b6ae" android:strokeWidth="2.5" android:strokeLineCap="round" android:pathData="M46,40L64,26" />
+    <path android:fillColor="#2e2f35" android:pathData="M32,40h44a5,5 0,0 1,5 5v26a5,5 0,0 1,-5 5H32a5,5 0,0 1,-5 -5V45a5,5 0,0 1,5 -5z" />
+    <path android:fillColor="#3b2a14" android:pathData="M33,45h42v9H33z" />
+    <path android:fillColor="#ffb547" android:pathData="M36,48h1.2v4H36zM41,48h1.2v4H41zM46,48h1.2v4H46zM51,48h1.2v4H51zM56,48h1.2v4H56zM61,48h1.2v4H61zM66,48h1.2v4H66zM71,48h1.2v4H71z" />
+    <path android:fillColor="#ff3b2f" android:pathData="M58,45h1.6v9H58z" />
+    <path android:fillColor="#1a1b1f" android:pathData="M41,65m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+    <path android:fillColor="#5ef0c4" android:pathData="M60,60h14v3H60zM60,66h10v3H60z" />
+</vector>

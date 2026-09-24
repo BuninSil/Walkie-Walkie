@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Радиостанция</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">РАДИО<span>СТАНЦИЯ</span></div>
+    <div class="lamp" id="lamp"><i></i><span id="lamp-text">НЕ В ЭФИРЕ</span></div>
+  </header>
+
+  <!-- Дисплей: частота, трек, уровень -->
+  <section class="panel">
+    <div class="display">
+      <div class="display__row">
+        <div class="freq"><span id="freq">100.0</span><small>МГц</small></div>
+        <div class="badges"><b id="b-rds">RDS</b><b id="b-key">ШИФР</b><b id="b-mic">ГОЛОС</b></div>
+      </div>
+      <div class="rdsline" id="airname">РАДИО</div>
+      <div class="now" id="now">Трек не выбран</div>
+      <div class="progress"><i id="progress"></i></div>
+      <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+      <div class="meter" id="meter"></div>
+    </div>
+
+    <!-- Шкала FM, как у приёмника: тяните, чтобы настроить -->
+    <div class="scale" id="scale">
+      <div class="scale__ticks" id="ticks"></div>
+      <div class="scale__needle" id="needle"></div>
+      <span class="scale__l">FM</span><span class="scale__r">МГц</span>
+    </div>
+    <div class="tune">
+      <button class="btn" id="down" type="button">− 0.1</button>
+      <span class="tune__hint">частота станции</span>
+      <button class="btn" id="up" type="button">+ 0.1</button>
+    </div>
+  </section>
+
+  <!-- Эфир -->
+  <section class="card">
+    <div class="air">
+      <button class="air__go" id="go" type="button">Выйти в эфир</button>
+      <button class="btn air__next" id="next" type="button">Следующий ▶▶</button>
+    </div>
+    <button class="talk" id="talk" type="button"><span>🎙</span> Держите — говорите поверх музыки</button>
+    <p class="note" id="status">Не в эфире.</p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Сервер</h2><span class="dot" id="srv-state">не подключено</span></div>
+    <div class="row">
+      <input id="address" placeholder="89.179.146.82:8765 или radio.example.ru" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url">
+      <button class="btn" id="connect" type="button">Подключиться</button>
+    </div>
+    <p class="note warn" id="srv-error" hidden></p>
+    <p class="note">На мобильном интернете сервер доступен только через VPN с иностранным сервером; на Wi-Fi — без него.</p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Мой эфир</h2></div>
+    <div class="grid">
+      <label><span>Позывной станции</span><input id="name" maxlength="24" autocomplete="off"></label>
+      <label><span>Ключ канала</span><input id="key" placeholder="без шифрования" autocomplete="off" autocapitalize="characters"></label>
+    </div>
+    <div class="switches">
+      <button class="chip" id="rds" type="button">Трек в RDS</button>
+      <button class="chip" id="monitor" type="button">Слышать себя</button>
+    </div>
+    <label class="slider"><span>Громкость музыки</span><input type="range" id="music" min="0" max="100" step="5"></label>
+    <p class="note">С ключом станцию слышно только у тех, у кого в рации (SCR) тот же ключ. «Слышать себя» — лучше в наушниках.</p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Плейлист</h2><span class="muted" id="count">0 треков</span></div>
+    <div class="folder">
+      <div class="folder__name" id="folder">Папка не выбрана</div>
+      <button class="btn" id="pick" type="button">Выбрать папку</button>
+      <button class="btn btn--icon" id="rescan" type="button" title="Обновить">⟳</button>
+    </div>
+    <div class="seg">
+      <button type="button" data-mode="loop">По кругу</button>
+      <button type="button" data-mode="shuffle">Случайно</button>
+    </div>
+    <ol class="list" id="list"></ol>
+  </section>
+
+  <footer class="foot">
+    Слушать станцию: <b>рация → F, 0</b> (FM-радио) → наберите частоту цифрами, например <b>1000</b> = 100.0 МГц.
+    Или ПК-приёмник «Радио» на той же частоте.<br><span id="version"></span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

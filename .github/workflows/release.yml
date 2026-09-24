@@ -1,8 +1,10 @@
 name: Release
 
 # Подписанный APK собирается и подписывается вне CI (ключа в репозитории нет).
-# Чтобы выпустить релиз, в ветку apk-release пушится коммит с Walkie-1.0.N.apk и notes.md —
-# отсюда создаётся релиз v1.0.N с этим APK, после чего ветка удаляется.
+# Чтобы выпустить релиз, в ветку apk-release пушится коммит с APK и notes.md:
+#   Walkie-1.0.N.apk  → релиз v1.0.N «Рация 1.0.N»
+#   Station-1.0.N.apk → релиз station-v1.0.N «Радиостанция 1.0.N»
+# После этого ветка удаляется.
 
 on:
   push:
@@ -22,14 +24,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk=$(ls Walkie-*.apk | head -1)
-          [ -f "$apk" ] && [ -f notes.md ] || { echo "::error::Нужны Walkie-1.0.N.apk и notes.md"; exit 1; }
-          version=${apk#Walkie-}; version=${version%.apk}
+          apk=$(ls *.apk | head -1)
+          [ -f "$apk" ] && [ -f notes.md ] || { echo "::error::Нужны APK и notes.md"; exit 1; }
+          case "$apk" in
+            Walkie-*)  version=${apk#Walkie-};  tag_prefix=v;          title="Рация" ;;
+            Station-*) version=${apk#Station-}; tag_prefix=station-v;  title="Радиостанция" ;;
+            *) echo "::error::Неизвестный APK: $apk"; exit 1 ;;
+          esac
+          version=${version%.apk}
           target=$(git rev-parse HEAD~1)
-          gh release create "v$version" "$apk" \
+          gh release create "${tag_prefix}${version}" "$apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$target" \
-            --title "Рация $version" \
+            --title "$title $version" \
             --notes-file notes.md \
             --latest
 

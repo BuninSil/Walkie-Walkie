@@ -11,6 +11,7 @@
 |---|---|---|
 | **ПК (Windows)** | `radio-walkie/` → `npm run dist` или готовый установщик | Рация, свой сервер эфира, полоска поверх игр, горячие клавиши |
 | **Android** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Walkie-1.0.N.apk` | Та же рация, кнопка PTT поверх приложений, фоновый приём |
+| **Радиостанция (Android)** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Station-1.0.N.apk` | Своя FM-станция: музыка из папки и голос в эфир на 87.5–108 МГц — [подробно](radio-air/README.md) |
 
 ---
 
@@ -252,6 +253,7 @@ radio-walkie/            Рация для ПК (Electron) — исходный 
   main.js, preload.js    Оболочка Windows: окна, полоска, свой сервер, горячие клавиши
   air-server.js          Сервер эфира (ретрансляция, ничего не записывает)
   upnp.js, hotkeys.js    Проброс порта в роутере, клавиши из любого окна
+radio-air/               Радиостанция для Android: музыка из папки в FM-эфир
 android/                 Рация для Android
   app/src/main/java/…    MainActivity, AirSocket, WalkieService, PttBubble, AirState
   app/src/main/assets/android/   bridge.js, android.css — адаптер рации под телефон
@@ -276,8 +278,9 @@ android/                 Рация для Android
 | Что | Как |
 |---|---|
 | ПК | `cd radio-walkie && npm install && npm run dist` |
-| Android | `cd android && ./gradlew assembleRelease` (JDK 17+, Android SDK или Android Studio) |
-| CI | Workflow «Android APK» и «Windows installer» при каждом пуше |
+| Android (рация) | `cd android && ./gradlew assembleRelease` (JDK 17+, Android SDK или Android Studio) |
+| Android (станция) | `cd radio-air && ./gradlew assembleRelease` |
+| CI | Workflow «Android APK», «Station APK» и «Windows installer» при каждом пуше |
 
 Android подробнее — в [android/README.md](android/README.md).
 
