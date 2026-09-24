@@ -11,6 +11,8 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # неподписанный APK кладётся в ветку apk-unsigned
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +30,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.WALKIE_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::warning::Нет секретов WALKIE_KEYSTORE_BASE64 / WALKIE_KEYSTORE_PASSWORD — код проверим, но APK не выпустим. См. android/README.md"
+            echo "::warning::Нет секретов WALKIE_KEYSTORE_BASE64 / WALKIE_KEYSTORE_PASSWORD — APK будет неподписанным (ветка apk-unsigned). См. android/README.md"
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/walkie.p12"
@@ -41,15 +43,26 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Подписанный APK
+        if: env.WALKIE_KEYSTORE_FILE != ''
         working-directory: android
-        run: |
-          if [ -z "$WALKIE_KEYSTORE_FILE" ]; then
-            echo "::error::APK не подписан: добавьте секреты WALKIE_KEYSTORE_BASE64 и WALKIE_KEYSTORE_PASSWORD (см. android/README.md)"
-            exit 1
-          fi
-          cp app/build/outputs/apk/release/app-release.apk "Walkie-1.0.${GITHUB_RUN_NUMBER}.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "Walkie-1.0.${GITHUB_RUN_NUMBER}.apk"
 
       - uses: actions/upload-artifact@v4
+        if: env.WALKIE_KEYSTORE_FILE != ''
         with:
           name: walkie-android-apk
           path: android/Walkie-*.apk
+
+      # Без ключа в секретах: неподписанный APK — в ветку apk-unsigned, подписывают его вне CI
+      # тем же ключом (android/tools/sign_v2.py). Ставить неподписанный APK нельзя.
+      - name: Неподписанный APK в ветку apk-unsigned
+        if: env.WALKIE_KEYSTORE_FILE == ''
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out" && cd "$RUNNER_TEMP/out"
+          cp "$GITHUB_WORKSPACE/android/app/build/outputs/apk/release/app-release-unsigned.apk" "Walkie-1.0.${GITHUB_RUN_NUMBER}-unsigned.apk"
+          git init -q -b apk-unsigned
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com add .
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Неподписанный APK 1.0.${GITHUB_RUN_NUMBER} (${GITHUB_SHA::7})"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/apk-unsigned
