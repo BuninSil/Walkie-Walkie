@@ -320,6 +320,26 @@
     return row;
   }
 
+  function updateText(u) {
+    const cur = `Версия ${u.current || native.version || ''}`;
+    switch (u.state) {
+      case 'checking': return `${cur} · проверяю…`;
+      case 'latest': return `${cur} · последняя`;
+      case 'available': return `${cur} · есть ${u.latest}`;
+      case 'downloading': return `${cur} · скачиваю ${u.latest}: ${u.progress || 0}%`;
+      case 'ready': return `${cur} · ${u.latest} скачана`;
+      case 'installing': return `${cur} · ставлю ${u.latest}…`;
+      default: return cur;
+    }
+  }
+
+  function updateButton(u) {
+    if (u.state === 'available') return 'Скачать';
+    if (u.state === 'ready') return u.canInstall ? 'Установить' : 'Разрешить';
+    if (u.state === 'downloading' || u.state === 'installing') return '…';
+    return 'Проверить';
+  }
+
   function renderPanel() {
     if (!panel || panel.hidden) return;
     const sheet = el('div', 'wk-sheet');
@@ -358,6 +378,23 @@
       renderPanel();
     }));
     sheet.append(sec);
+
+    // Обновления из релизов GitHub
+    const up = native.update || {};
+    const usec = el('section', 'wk-sec');
+    usec.append(el('h3', null, 'Обновления'));
+    const urow = el('div', 'wk-row');
+    const utext = el('span', 'wk-row__text', updateText(up));
+    if (up.error) utext.append(el('small', null, up.error));
+    const ubtn = el('button', 'wk-btn', updateButton(up));
+    ubtn.type = 'button';
+    ubtn.disabled = ['checking', 'downloading', 'installing'].includes(up.state);
+    ubtn.addEventListener('click', () => shell?.update?.());
+    urow.append(utext, ubtn);
+    usec.append(urow);
+    usec.append(toggle('Обновлять автоматически', 'Скачать и поставить, когда рация не передаёт', up.auto !== false,
+      (on) => shell?.setUpdateAuto?.(on)));
+    sheet.append(usec);
 
     const done = el('button', 'wk-done', 'Готово');
     done.type = 'button';

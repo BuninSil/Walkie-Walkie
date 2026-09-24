@@ -1,0 +1,28 @@
+name: Release cleanup
+
+# Удалить релизы (вместе с тегами): в ветку release-delete пушится tags.txt — по тегу на строку.
+# После этого ветка удаляется.
+
+on:
+  push:
+    branches: [release-delete]
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Удалить релизы
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes && echo "удалён $tag"
+          done < tags.txt
+
+      - name: Убрать ветку release-delete
+        run: git push origin --delete release-delete || true

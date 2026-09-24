@@ -43,6 +43,15 @@ public class WalkieService extends Service implements AirState.Listener {
     private WifiManager.WifiLock wifiLock;
     private PttBubble bubble;
     private String shownText = null;
+    private final android.os.Handler timers = new android.os.Handler(android.os.Looper.getMainLooper());
+    // Рация работает сутками — проверяем обновления и в фоне (сам Updater ходит не чаще раза в 6 ч)
+    private final Runnable updateTimer = new Runnable() {
+        @Override
+        public void run() {
+            Updater.get(WalkieService.this).checkSoon();
+            timers.postDelayed(this, 30 * 60 * 1000L);
+        }
+    };
 
     public static void start(Context context) {
         try {
@@ -88,6 +97,7 @@ public class WalkieService extends Service implements AirState.Listener {
         bubble = new PttBubble(this);
         AirState.addListener(this);
         instance = this;
+        updateTimer.run();
     }
 
     @Override
@@ -213,6 +223,7 @@ public class WalkieService extends Service implements AirState.Listener {
     public void onDestroy() {
         AirState.removeListener(this);
         if (instance == this) instance = null;
+        timers.removeCallbacks(updateTimer);
         bubble.hide();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();

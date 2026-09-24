@@ -166,6 +166,32 @@
     });
   }
 
+  /* ───────── Обновления ───────── */
+
+  $('upd-btn').addEventListener('click', () => app?.update());
+  $('upd-auto').addEventListener('click', () => app?.setUpdateAuto(!(st.update?.auto !== false)));
+
+  function renderUpdate() {
+    const u = st.update || {};
+    const texts = {
+      checking: 'Проверяю…',
+      latest: 'Последняя версия',
+      available: `Есть версия ${u.latest}`,
+      downloading: `Скачиваю ${u.latest}: ${u.progress || 0}%`,
+      ready: `Версия ${u.latest} скачана${st.onAir ? ' — поставлю после эфира' : ''}`,
+      installing: `Ставлю ${u.latest}…`,
+      error: 'Не получилось',
+    };
+    $('upd-ver').textContent = u.current ? `версия ${u.current}` : '';
+    $('upd-text').textContent = texts[u.state] || 'Нажмите «Проверить»';
+    const btn = $('upd-btn');
+    btn.textContent = u.state === 'available' ? 'Скачать' : u.state === 'ready' ? (u.canInstall ? 'Установить' : 'Разрешить') : 'Проверить';
+    btn.disabled = ['checking', 'downloading', 'installing'].includes(u.state);
+    $('upd-error').hidden = !u.error;
+    $('upd-error').textContent = u.error || '';
+    $('upd-auto').classList.toggle('is-on', u.auto !== false);
+  }
+
   /* ───────── Показ ───────── */
 
   const meter = $('meter');
@@ -232,6 +258,7 @@
       document.querySelectorAll('.list li').forEach((li, i) => li.classList.toggle('is-current', i === st.current && st.onAir));
       document.querySelector('.list li.is-current')?.scrollIntoView({ block: 'nearest' });
     }
+    renderUpdate();
     $('version').textContent = `Радиостанция${st.version ? ` ${st.version}` : ''} · Авторы: BuninSil и Valex`;
   }
 

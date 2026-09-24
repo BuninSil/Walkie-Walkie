@@ -67,6 +67,8 @@ public class MainActivity extends ComponentActivity {
     private boolean wantBubble;        // включили кнопку поверх — ждём разрешения в настройках Android
     private AlertDialog textDialog;
     private SharedPreferences prefs;
+    private Updater updater;
+    private final Updater.Listener updateWatch = MainActivity::optionsChanged;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -74,6 +76,9 @@ public class MainActivity extends ComponentActivity {
         super.onCreate(savedInstanceState);
         instance = this;
         prefs = getSharedPreferences(WalkieService.PREFS, MODE_PRIVATE);
+        updater = Updater.get(this);
+        updater.canInstallNow = () -> !AirState.transmitting(); // посреди передачи не обновляемся
+        updater.addListener(updateWatch);
         applyKeepScreen();
 
         FrameLayout root = new FrameLayout(this);
@@ -243,6 +248,8 @@ public class MainActivity extends ComponentActivity {
         super.onResume();
         // Пока приложение на экране, Android разрешает запустить фоновый сервис (с микрофоном — если разрешён)
         WalkieService.start(this);
+        updater.checkSoon();
+        if (!updater.needsPermission()) updater.installIfIdle(); // вернулись из «разрешить установку»
         // Вернулись из настроек «поверх других приложений»
         if (wantBubble) {
             wantBubble = false;
@@ -300,6 +307,7 @@ public class MainActivity extends ComponentActivity {
             o.put("bubble", WalkieService.bubbleEnabled(this) && Settings.canDrawOverlays(this));
             o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
             o.put("version", BuildConfig.VERSION_NAME);
+            o.put("update", updater.toJson());
         } catch (Exception ignored) {
             // JSONObject.put не бросает для этих значений
         }
@@ -380,6 +388,7 @@ public class MainActivity extends ComponentActivity {
     @Override
     protected void onDestroy() {
         if (instance == this) instance = null;
+        updater.removeListener(updateWatch);
         if (textDialog != null) textDialog.dismiss();
         if (audio != null) audio.unregisterAudioDeviceCallback(headsetWatch);
         air.closeAll();
@@ -413,6 +422,29 @@ public class MainActivity extends ComponentActivity {
         public void vibrate() {
             Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (v != null && v.hasVibrator()) v.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+
+        // Обновления: проверить / скачать / установить — смотря что сейчас можно
+        @JavascriptInterface
+        public void update() {
+            runOnUiThread(() -> {
+                switch (updater.state) {
+                    case "available":
+                        updater.download();
+                        break;
+                    case "ready":
+                        if (updater.needsPermission()) startActivity(updater.permissionIntent());
+                        else updater.install();
+                        break;
+                    default:
+                        updater.check(true);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void setUpdateAuto(boolean on) {
+            runOnUiThread(() -> updater.setAuto(on));
         }
 
         @JavascriptInterface

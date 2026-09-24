@@ -15,6 +15,7 @@ android {
         targetSdk 36
         versionCode 100 + buildNumber
         versionName "1.0.${buildNumber}"
+        buildConfigField "String", "UPDATE_PREFIX", '"Station-"'  // имя APK в релизах: Station-1.0.N.apk
     }
 
     buildFeatures {

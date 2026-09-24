@@ -154,6 +154,19 @@ body {
 .wk-switch[aria-pressed="true"] { background: var(--label-alt); }
 .wk-switch[aria-pressed="true"] span { transform: translateX(20px); }
 
+.wk-btn {
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid #2c2d33;
+  border-radius: 10px;
+  background: #24252a;
+  color: var(--label-alt);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wk-btn:disabled { opacity: 0.5; }
+
 .wk-done {
   width: 100%;
   margin-top: 18px;

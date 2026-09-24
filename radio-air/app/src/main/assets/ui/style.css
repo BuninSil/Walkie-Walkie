@@ -464,3 +464,7 @@ label > span, .slider > span {
 }
 
 .foot b { color: var(--text); }
+
+.upd { align-items: center; }
+.upd__text { flex: 1; font-size: 14px; }
+#upd-btn:disabled { opacity: 0.5; }

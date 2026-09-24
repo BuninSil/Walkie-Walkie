@@ -41,6 +41,8 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
     private final Handler main = new Handler(Looper.getMainLooper());
     private Object tracksOf = null;
     private boolean micWanted;
+    private Updater updater;
+    private final Updater.Listener updateWatch = this::push;
 
     private final ActivityResultLauncher<Uri> pickFolder = registerForActivityResult(
         new ActivityResultContracts.OpenDocumentTree(), (uri) -> {
@@ -71,6 +73,8 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         station = Station.get(this);
+        updater = Updater.get(this);
+        updater.canInstallNow = () -> !station.onAir; // в эфире не обновляемся — поставим после
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xff0b0c0f);
@@ -117,12 +121,16 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
     protected void onResume() {
         super.onResume();
         station.addListener(this);
+        updater.addListener(updateWatch);
+        updater.checkSoon();
+        if (!updater.needsPermission()) updater.installIfIdle(); // вернулись из «разрешить установку»
         main.post(tick);
     }
 
     @Override
     protected void onPause() {
         station.removeListener(this);
+        updater.removeListener(updateWatch);
         main.removeCallbacks(tick);
         super.onPause();
     }
@@ -138,7 +146,13 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
             tracksOf = station.playlist;
             web.evaluateJavascript("window.__tracks&&window.__tracks(" + station.titles() + ")", null);
         }
-        web.evaluateJavascript("window.__station&&window.__station(" + station.state() + ")", null);
+        JSONObject st = station.state();
+        try {
+            st.put("update", updater.toJson());
+        } catch (Exception ignored) {
+            // не бросает
+        }
+        web.evaluateJavascript("window.__station&&window.__station(" + st + ")", null);
     }
 
     @Override
@@ -219,6 +233,30 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
         @JavascriptInterface
         public void setMonitor(boolean on) {
             main.post(() -> station.setMonitor(on));
+        }
+
+        // Обновления: проверить / скачать / установить — смотря что сейчас можно
+        @JavascriptInterface
+        public void update() {
+            main.post(() -> {
+                switch (updater.state) {
+                    case "available":
+                        updater.download();
+                        break;
+                    case "ready":
+                        if (updater.needsPermission()) startActivity(updater.permissionIntent());
+                        else if (station.onAir) updater.installIfIdle();
+                        else updater.install();
+                        break;
+                    default:
+                        updater.check(true);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void setUpdateAuto(boolean on) {
+            main.post(() -> updater.setAuto(on));
         }
 
         // Голос поверх музыки: держите кнопку — говорите
