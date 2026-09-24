@@ -28,23 +28,7 @@
 
 /* ───────── Фон приложения ───────── */
 
-html body { background: var(--wk-bg, radial-gradient(ellipse at 50% 35%, #23252a 0%, #0d0e10 70%)) !important; background-attachment: fixed !important; }
-
-#wk-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-position: center;
-  background-size: cover;
-  pointer-events: none;
-}
-
-#wk-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, var(--wk-bg-dim, 0));
-}
+html body { background: var(--wk-bg, radial-gradient(ellipse at 50% 35%, #23252a 0%, #0d0e10 70%)) !important; }
 
 /* ───────── Фактура корпуса ───────── */
 

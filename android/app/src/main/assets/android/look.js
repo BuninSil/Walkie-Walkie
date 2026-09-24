@@ -231,8 +231,22 @@
   /* ───────── Применение ───────── */
 
   const style = document.createElement('style');
-  const bgLayer = document.createElement('div');
-  bgLayer.id = 'wk-bg';
+
+  // Картинки в стилях — короткими blob:-ссылками, а не мегабайтными data:-строками
+  const urls = {};
+  function refreshUrls() {
+    for (const name of ['bg', 'lcd']) {
+      if (urls[name]) URL.revokeObjectURL(urls[name]);
+      urls[name] = null;
+      const data = images[name];
+      if (!data) continue;
+      const [head, body] = data.split(',');
+      const bytes = atob(body);
+      const buf = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+      urls[name] = URL.createObjectURL(new Blob([buf], { type: /data:([^;]+)/.exec(head)?.[1] || 'image/jpeg' }));
+    }
+  }
 
   function apply() {
     const v = {};
@@ -285,9 +299,12 @@
 
     const bg = BACKGROUNDS[look.bg] || BACKGROUNDS.dark;
     if (look.bg === 'color') v['--wk-bg'] = look.bgColor;
-    else if (look.bg === 'image') v['--wk-bg'] = '#000';
+    else if (look.bg === 'image' && urls.bg) {
+      // Картинка — прямо фоном страницы, затемнение — полупрозрачным слоем поверх
+      const dim = look.bgDim / 100;
+      v['--wk-bg'] = `linear-gradient(rgba(0, 0, 0, ${dim}), rgba(0, 0, 0, ${dim})), url("${urls.bg}") center / cover no-repeat, #000`;
+    } else if (look.bg === 'image') v['--wk-bg'] = '#000';
     else v['--wk-bg'] = bg.css;
-    v['--wk-bg-dim'] = String(look.bg === 'image' ? look.bgDim / 100 : 0);
 
     let css = `html:root { ${Object.entries(v).map(([k, x]) => `${k}: ${x};`).join(' ')} }`;
     css += ` .knob__mark { background: ${look.knob} !important; }`;
@@ -303,14 +320,12 @@
     d.antenna = look.antenna ? 'on' : 'off';
     toggleAttr('glow', look.glow);
     toggleAttr('lcdImage', Boolean(lcdBg));
-    bgLayer.style.backgroundImage = look.bg === 'image' && images.bg ? `url("${images.bg}")` : 'none';
-    bgLayer.style.display = look.bg === 'image' ? '' : 'none';
     save();
   }
 
   // Фон экрана: готовый или своя картинка
   function lcdBackground() {
-    if (look.lcdBg === 'image') return images.lcd ? `url("${images.lcd}") center / cover` : null;
+    if (look.lcdBg === 'image') return urls.lcd ? `url("${urls.lcd}") center / cover` : null;
     return LCD_BACKGROUNDS[look.lcdBg]?.css || null;
   }
 
@@ -336,6 +351,7 @@
     look = { ...DEFAULTS, haptics: look.haptics };
     delete images.bg;
     delete images.lcd;
+    refreshUrls();
     imageSet('bg', null);
     imageSet('lcd', null);
     apply();
@@ -452,6 +468,7 @@
       const data = await pickImage(maxSide);
       if (!data) return;
       images[name] = data;
+      refreshUrls();
       await imageSet(name, data);
       set(onKey);
     });
@@ -461,6 +478,7 @@
       del.type = 'button';
       del.addEventListener('click', async () => {
         delete images[name];
+        refreshUrls();
         await imageSet(name, null);
         set(name === 'bg' ? { bg: 'dark' } : { lcdBg: 'none' });
       });
@@ -596,9 +614,9 @@
   document.head.append(style);
   apply(); // цвета — сразу, до первой отрисовки рации
   document.addEventListener('DOMContentLoaded', async () => {
-    document.body.prepend(bgLayer);
     images.bg = await imageGet('bg');
     images.lcd = await imageGet('lcd');
+    refreshUrls();
     apply();
   });
 
