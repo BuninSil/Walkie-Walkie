@@ -1,0 +1,60 @@
+{
+  "name": "radio-walkie",
+  "productName": "Рация",
+  "version": "0.1.0",
+  "description": "Рация для эфира «Радио»: каналы PMR/LPD, шифрование, полоска поверх игр",
+  "author": "Radio",
+  "private": true,
+  "main": "main.js",
+  "walkieOnly": true,
+  "webRoot": "web",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "ru.radio.walkie",
+    "productName": "Рация",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "air-server.js",
+      "upnp.js",
+      "hotkeys.js",
+      "package.json",
+      "!**/node_modules/uiohook-napi/prebuilds/{darwin-*,linux-*,win32-arm64}/**",
+      "!**/node_modules/uiohook-napi/{src,libuiohook,build}/**"
+    ],
+    "extraResources": [
+      {
+        "from": "web",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Walkie-Setup-${version}.exe",
+      "shortcutName": "Рация"
+    },
+    "npmRebuild": false
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  }
+}
