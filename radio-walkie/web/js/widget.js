@@ -698,7 +698,17 @@
   function startEntry(code, initial, done) {
     entry = { code, done };
     input.value = initial ?? '';
+    input.inputMode = code === 'SERVER' ? 'url' : 'text'; // на телефоне — клавиатура с точкой и двоеточием
     input.focus();
+    render();
+  }
+
+  // Символ с кнопок рации (null — стереть последний)
+  function typeEntry(ch) {
+    const text = input.value;
+    if (ch === null) input.value = text.slice(0, -1);
+    else if (text.length < input.maxLength) input.value = text + ch;
+    keyBeep();
     render();
   }
 
@@ -718,7 +728,7 @@
 
   input.addEventListener('input', render);
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.keyCode === 13) { // экранные клавиатуры Android не всегда присылают key
       e.preventDefault();
       finishEntry(true);
     } else if (e.key === 'Escape') {
@@ -848,8 +858,11 @@
     if (!radio.power) return;
     wake();
     if (entry) {
+      // Текст можно набрать и кнопками рации: цифры, ✱ — точка (для адреса), ▼ — стереть
       if (key === 'menu') finishEntry(true);
       else if (key === 'exit') finishEntry(false);
+      else if (/^\d$/.test(key) || (key === 'star' && !long)) typeEntry(key === 'star' ? '.' : key);
+      else if (key === 'down') typeEntry(null);
       return;
     }
     if (key === 'f' && long) {
@@ -1245,6 +1258,7 @@
 
     // Основной экран, меню или ввод текста
     const inMenu = Boolean(menu) || Boolean(entry);
+    document.body.classList.toggle('is-entry', Boolean(entry));
     $('screen-main').hidden = inMenu;
     $('screen-menu').hidden = !inMenu;
     if (entry) {
@@ -1255,7 +1269,7 @@
       setText(value, input.value);
       value.classList.add('is-entry');
       value.classList.remove('is-editing');
-      setText($('menu-hint'), `${item?.hint ?? ''} · ENTER — ОК`);
+      setText($('menu-hint'), `${item?.hint ?? ''} · ${mobile ? 'MENU' : 'ENTER'} — ОК`);
     } else if (menu) {
       const item = MENU[menu.index];
       setText($('menu-num'), String(menu.index + 1).padStart(2, '0'));
@@ -1265,7 +1279,7 @@
       setText(value, shown);
       value.classList.toggle('is-editing', menu.editing);
       value.classList.remove('is-entry');
-      setText($('menu-hint'), menuHint(item));
+      setText($('menu-hint'), menu.editing && menu.options[menu.pick] === NEW ? 'MENU — ВВЕСТИ' : menuHint(item));
     } else {
       lineView('A', rx);
       lineView('B', rx);

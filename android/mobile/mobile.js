@@ -103,7 +103,13 @@ window.radioMobile = { platform: 'android' };
   }
 
   window.addEventListener('resize', fit);
-  document.addEventListener('DOMContentLoaded', fit);
+  document.addEventListener('DOMContentLoaded', () => {
+    // Поле ввода текста — прозрачное поверх экрана рации: Android открывает клавиатуру только для
+    // поля на экране, а тап по экрану во время ввода открывает её снова, если её закрыли
+    const input = document.getElementById('text-entry');
+    document.getElementById('lcd')?.append(input);
+    fit();
+  });
 
   // Долгое нажатие не должно открывать меню «копировать / выделить» и лупу
   document.addEventListener('contextmenu', (e) => e.preventDefault());
