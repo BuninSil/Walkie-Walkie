@@ -20,6 +20,11 @@ jobs:
           java-version: 21
           cache: gradle
 
+      - name: Ключ отладочной подписи до сборки
+        run: |
+          ls -la ~/.android/ 2>&1 || true
+          keytool -list -v -keystore ~/.android/debug.keystore -storepass android 2>&1 | grep -E "SHA256|Создан|Creation" || echo "NO DEBUG KEYSTORE BEFORE BUILD"
+
       - name: Собрать рацию для Android
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
@@ -28,3 +33,6 @@ jobs:
         with:
           name: walkie-android-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Ключ отладочной подписи после сборки
+        run: keytool -list -v -keystore ~/.android/debug.keystore -storepass android 2>&1 | grep -E "SHA256|Creation" || true
