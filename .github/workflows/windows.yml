@@ -1,0 +1,31 @@
+name: Windows installer
+
+on:
+  push:
+    paths:
+      - 'radio-walkie/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: radio-walkie/package-lock.json
+
+      - name: Собрать установщик рации для ПК
+        working-directory: radio-walkie
+        run: |
+          npm ci
+          npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walkie-windows-setup
+          path: radio-walkie/dist/*.exe
