@@ -8,6 +8,11 @@ on:
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
+# Сборки по очереди: иначе два запуска (ветка и main) одновременно пишут APK в одну ветку
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   apk:
     runs-on: ubuntu-latest
