@@ -363,7 +363,7 @@
     done.type = 'button';
     done.addEventListener('click', () => openPanel(false));
     sheet.append(done);
-    if (native.version) sheet.append(el('p', 'wk-ver', `Рация для Android ${native.version}`));
+    sheet.append(el('p', 'wk-ver', `Рация для Android${native.version ? ` ${native.version}` : ''} · Авторы: BuninSil и Valex`));
     panel.replaceChildren(sheet);
   }
 

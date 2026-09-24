@@ -232,7 +232,7 @@
       document.querySelectorAll('.list li').forEach((li, i) => li.classList.toggle('is-current', i === st.current && st.onAir));
       document.querySelector('.list li.is-current')?.scrollIntoView({ block: 'nearest' });
     }
-    $('version').textContent = st.version ? `Радиостанция ${st.version}` : '';
+    $('version').textContent = `Радиостанция${st.version ? ` ${st.version}` : ''} · Авторы: BuninSil и Valex`;
   }
 
   window.__station = (s) => {
