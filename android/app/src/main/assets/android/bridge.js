@@ -195,59 +195,7 @@
 
   /* ───────── Внешний вид и настройки телефона ───────── */
 
-  const LOOK_KEY = 'walkie.android.look';
-  const BODIES = {
-    graphite: { name: 'Графит', sw: '#26272b' },
-    olive: { name: 'Олива', sw: '#4b5234', v: { '--plastic-hi': '#4b5234', '--plastic-lo': '#2a2f1c', '--key-hi': '#3b4129', '--key-lo': '#23271a', '--key-side-hi': '#525a3a', '--key-side-lo': '#353b26' } },
-    navy: { name: 'Ночь', sw: '#25324d', v: { '--plastic-hi': '#25324d', '--plastic-lo': '#111a2c', '--key-hi': '#2c3850', '--key-lo': '#172033', '--key-side-hi': '#36435e', '--key-side-lo': '#222d44' } },
-    orange: { name: 'Оранж', sw: '#d86b1c', v: { '--plastic-hi': '#d86b1c', '--plastic-lo': '#9c470b', '--key-side-hi': '#e07a2a', '--key-side-lo': '#a8520f' } },
-    red: { name: 'Красный', sw: '#7d2226', v: { '--plastic-hi': '#7d2226', '--plastic-lo': '#3e0f12', '--key-side-hi': '#8a2c30', '--key-side-lo': '#57181b' } },
-    sand: { name: 'Песок', sw: '#a38b5e', v: { '--plastic-hi': '#a38b5e', '--plastic-lo': '#6e5a36', '--key-hi': '#4a4234', '--key-lo': '#2e281e', '--key-side-hi': '#b09a6c', '--key-side-lo': '#7a6540' } },
-  };
-  const SCREENS = {
-    green: { name: 'Зелёная', sw: '#c6d6b2' },
-    amber: { name: 'Янтарь', sw: '#ffcf7a', v: { '--lcd-lit': '#ffcf7a', '--lcd-lit-lo': '#e0a948' } },
-    ice: { name: 'Лёд', sw: '#b8e3f5', v: { '--lcd-lit': '#b8e3f5', '--lcd-lit-lo': '#8cc6e0' } },
-    white: { name: 'Белая', sw: '#eef0ea', v: { '--lcd-lit': '#eef0ea', '--lcd-lit-lo': '#d3d7cf' } },
-    red: { name: 'Красная', sw: '#ffb0a6', v: { '--lcd-lit': '#ffb0a6', '--lcd-lit-lo': '#e68a7e' } },
-  };
-  const ACCENTS = {
-    orange: { name: 'Оранж', sw: '#ff9a3c' },
-    yellow: { name: 'Жёлтые', sw: '#ffd23c', v: { '--label-alt': '#ffd23c' } },
-    cyan: { name: 'Голубые', sw: '#4cd2ff', v: { '--label-alt': '#4cd2ff' } },
-    green: { name: 'Зелёные', sw: '#6ee06e', v: { '--label-alt': '#6ee06e' } },
-    red: { name: 'Красные', sw: '#ff5a4c', v: { '--label-alt': '#ff5a4c' } },
-  };
-  const GROUPS = [['body', 'Корпус', BODIES], ['screen', 'Подсветка экрана', SCREENS], ['accent', 'Надписи F-функций', ACCENTS]];
-
-  function loadLook() {
-    let look = {};
-    try {
-      look = JSON.parse(localStorage.getItem(LOOK_KEY)) || {};
-    } catch {
-      /* по умолчанию */
-    }
-    return {
-      body: BODIES[look.body] ? look.body : 'graphite',
-      screen: SCREENS[look.screen] ? look.screen : 'green',
-      accent: ACCENTS[look.accent] ? look.accent : 'orange',
-      haptics: look.haptics !== false,
-    };
-  }
-
-  let look = loadLook();
-  const lookStyle = document.createElement('style');
-
-  function applyLook() {
-    const vars = { ...BODIES[look.body].v, ...SCREENS[look.screen].v, ...ACCENTS[look.accent].v };
-    const rules = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
-    lookStyle.textContent = rules ? `:root { ${rules} }` : '';
-    try {
-      localStorage.setItem(LOOK_KEY, JSON.stringify(look));
-    } catch {
-      /* не запомним — не страшно */
-    }
-  }
+  // Цвета, темы, шрифты, фоны и неон — в look.js (window.WalkieLook)
 
   // Настройки, которые живут в Android (кнопка поверх, экран), — через WalkieShell
   let native = {};
@@ -266,8 +214,6 @@
   let panel = null;
 
   function setupLook() {
-    document.head.append(lookStyle);
-    applyLook();
     readNative();
 
     // Шестерёнка — рядом со «свернуть» и «закрыть», как кнопки окна на ПК
@@ -282,7 +228,7 @@
     chrome?.prepend(gear);
 
     // Вибрация — как щелчок настоящей кнопки
-    const buzz = () => look.haptics && shell?.vibrate?.();
+    const buzz = () => window.WalkieLook?.haptics !== false && shell?.vibrate?.();
     for (const el of document.querySelectorAll('.key, #ptt, .side__key, #knob')) el.addEventListener('pointerdown', buzz);
 
     panel = document.createElement('div');
@@ -346,26 +292,13 @@
     const sheet = el('div', 'wk-sheet');
     sheet.append(el('h2', null, 'Настройки рации'));
 
-    for (const [key, title, options] of GROUPS) {
-      const sec = el('section', 'wk-sec');
-      sec.append(el('h3', null, title));
-      const row = el('div', 'wk-swatches');
-      for (const [id, o] of Object.entries(options)) {
-        const b = el('button', 'wk-swatch');
-        b.type = 'button';
-        b.style.setProperty('--sw', o.sw);
-        b.setAttribute('aria-pressed', String(look[key] === id));
-        b.append(el('i'), el('span', null, o.name));
-        b.addEventListener('click', () => {
-          look = { ...look, [key]: id };
-          applyLook();
-          renderPanel();
-        });
-        row.append(b);
-      }
-      sec.append(row);
-      sheet.append(sec);
-    }
+    const lookBtn = el('button', 'wk-look', '🎨  Внешний вид и темы');
+    lookBtn.type = 'button';
+    lookBtn.addEventListener('click', () => {
+      openPanel(false);
+      window.WalkieLook?.open();
+    });
+    sheet.append(lookBtn);
 
     const sec = el('section', 'wk-sec');
     sec.append(el('h3', null, 'Телефон'));
@@ -373,11 +306,6 @@
       (on) => shell?.setOption?.('bubble', on)));
     sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,
       (on) => shell?.setOption?.('keepScreen', on)));
-    sec.append(toggle('Вибрация кнопок', null, look.haptics, (on) => {
-      look = { ...look, haptics: on };
-      applyLook();
-      renderPanel();
-    }));
     sheet.append(sec);
 
     // Обновления из релизов GitHub

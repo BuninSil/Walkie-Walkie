@@ -23,6 +23,7 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -64,6 +65,12 @@ public class MainActivity extends ComponentActivity {
     private WebView web;
     private AirSocket air;
     private PermissionRequest pendingMic;
+    private ValueCallback<Uri[]> pendingFile;
+    private final androidx.activity.result.ActivityResultLauncher<String> pickImage = registerForActivityResult(
+        new androidx.activity.result.contract.ActivityResultContracts.GetContent(), (uri) -> {
+            if (pendingFile != null) pendingFile.onReceiveValue(uri != null ? new Uri[] { uri } : null);
+            pendingFile = null;
+        });
     private boolean wantBubble;        // включили кнопку поверх — ждём разрешения в настройках Android
     private AlertDialog textDialog;
     private SharedPreferences prefs;
@@ -128,6 +135,15 @@ public class MainActivity extends ComponentActivity {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
                 runOnUiThread(() -> micRequest(request));
+            }
+
+            // Картинка для фона или экрана рации — из галереи (Внешний вид → Фон / Экран)
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (pendingFile != null) pendingFile.onReceiveValue(null);
+                pendingFile = callback;
+                pickImage.launch("image/*");
+                return true;
             }
         });
 
@@ -202,8 +218,8 @@ public class MainActivity extends ComponentActivity {
             byte[] chunk = new byte[8192];
             for (int n; (n = in.read(chunk)) > 0; ) buf.write(chunk, 0, n);
             String html = buf.toString("UTF-8")
-                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>")
-                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n</head>");
+                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>")
+                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n</head>");
             return new WebResourceResponse("text/html", "utf-8",
                 new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
         } catch (IOException e) {
