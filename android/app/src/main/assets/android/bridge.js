@@ -291,10 +291,127 @@
     }).observe(document.getElementById('rig'), { attributes: true, attributeFilter: ['data-power'] });
   }
 
+  /* ───────── Плашка «Что нового» после обновления ─────────
+   * Версия поменялась — берём описание этого релиза с GitHub (раздел «## Новое…») и показываем
+   * списком. Нет интернета — покажем в следующий раз. Первая установка — молча запоминаем версию. */
+  function whatsNew(version, tag, hadData, css) {
+    const SEEN = 'walkie.seenVersion';
+    let seen = null;
+    try {
+      seen = localStorage.getItem(SEEN);
+    } catch {
+      return;
+    }
+    if (!version || seen === version) return;
+    if (!seen && !hadData) {
+      localStorage.setItem(SEEN, version);
+      return;
+    }
+    fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rel) => {
+        const items = notesList(rel?.body || '');
+        if (items) showPlate(version, items, css);
+        try {
+          localStorage.setItem(SEEN, version);
+        } catch {
+          /* покажем ещё раз — не страшно */
+        }
+      })
+      .catch(() => { /* нет сети — в следующий раз */ });
+  }
+
+  // Из Markdown релиза — пункты раздела «## Новое…» (или первого списка) с вложенными
+  function notesList(md) {
+    const lines = md.replace(/\r/g, '').split('\n');
+    let start = lines.findIndex((l) => /^##\s+Новое/i.test(l));
+    if (start < 0) start = lines.findIndex((l) => /^\s*[-*]\s/.test(l)) - 1;
+    if (start < -1) return null;
+    const out = [];
+    for (let i = start + 1; i < lines.length; i++) {
+      const l = lines[i];
+      if (/^##\s/.test(l)) break;
+      const m = /^(\s*)[-*]\s+(.*)$/.exec(l);
+      if (m) out.push({ level: m[1].length >= 2 ? 1 : 0, text: m[2] });
+      else if (out.length && l.trim() && !/^\s*$/.test(l) && /^\s{2,}/.test(l)) out[out.length - 1].text += ` ${l.trim()}`;
+      else if (out.length && !l.trim()) break;
+    }
+    return out.length ? out : null;
+  }
+
+  function inline(text) {
+    const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
+  }
+
+  function showPlate(version, items, css) {
+    const wrap = document.createElement('div');
+    wrap.className = 'wn';
+    const card = document.createElement('div');
+    card.className = 'wn__card';
+    const head = document.createElement('div');
+    head.className = 'wn__head';
+    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>`;
+    const list = document.createElement('ul');
+    list.className = 'wn__list';
+    list.innerHTML = items.map((it) => `<li class="${it.level ? 'is-sub' : ''}">${inline(it.text)}</li>`).join('');
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'wn__ok';
+    ok.textContent = 'Понятно';
+    const close = () => {
+      wrap.classList.add('is-out');
+      setTimeout(() => wrap.remove(), 250);
+    };
+    ok.addEventListener('click', close);
+    wrap.addEventListener('click', (e) => {
+      if (e.target === wrap) close();
+    });
+    card.append(head, list, ok);
+    wrap.append(card);
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.append(style);
+    document.body.append(wrap);
+  }
+
+  const WN_CSS = `
+    .wn { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-start; justify-content: center;
+      padding: 14px 12px; background: rgba(5, 6, 8, 0.45); animation: wn-in 0.25s ease-out; touch-action: pan-y; }
+    .wn.is-out { animation: wn-out 0.25s ease-in forwards; }
+    .wn__card { width: 100%; max-width: 440px; max-height: 70vh; display: flex; flex-direction: column;
+      border: 1px solid #2c2d33; border-radius: 16px; background: linear-gradient(180deg, #1f2025, #15161a);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); color: #ecebe6; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+    .wn__head { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; font-size: 16px; }
+    .wn__list { margin: 0; padding: 4px 18px 4px 34px; overflow-y: auto; }
+    .wn__list li { margin: 5px 0; }
+    .wn__list li.is-sub { margin-left: 16px; list-style: circle; color: #c9c6be; font-size: 13px; }
+    .wn__list b { color: #fff; }
+    .wn__list code { font-size: 12px; color: #c9c6be; }
+    .wn__ok { margin: 10px 14px 14px; padding: 11px; border: 0; border-radius: 12px; background: var(--wn-accent, #ff9a3c);
+      color: #141414; font: 700 15px system-ui, sans-serif; }
+    @keyframes wn-in { from { opacity: 0; transform: translateY(-16px); } }
+    @keyframes wn-out { to { opacity: 0; transform: translateY(-16px); } }
+  `;
+
   document.addEventListener('DOMContentLoaded', () => {
     fit();
     setupTorch();
     setupSos();
+    // Версия — из Android; «уже была рация» — есть её сохранённые настройки
+    let version = null;
+    try {
+      version = JSON.parse(shell?.options?.() || '{}').version;
+    } catch {
+      /* нет версии — нет плашки */
+    }
+    let hadData = false;
+    try {
+      hadData = Boolean(localStorage.getItem('radio.widget.v1'));
+    } catch {
+      /* пусто */
+    }
+    setTimeout(() => whatsNew(version, `v${version}`, hadData, WN_CSS.replace('var(--wn-accent, #ff9a3c)', 'var(--label-alt, #ff9a3c)')), 1200);
     setupTextEntry();
     setupLook();
     setupMicRelease();
