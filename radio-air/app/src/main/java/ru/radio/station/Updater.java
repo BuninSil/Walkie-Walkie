@@ -1,5 +1,6 @@
 package ru.radio.station;
 
+import android.app.Activity;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -47,7 +48,8 @@ public final class Updater {
 
     private static final String RELEASES = "https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=20";
     private static final String CHANNEL = "updates";
-    private static final long CHECK_EVERY_MS = TimeUnit.HOURS.toMillis(6);
+    private static final long CHECK_EVERY_MS = TimeUnit.HOURS.toMillis(6);        // в фоне
+    private static final long CHECK_ON_OPEN_MS = TimeUnit.MINUTES.toMillis(1);    // при каждом входе (минута — от повторов)
     private static final int NOTIFY_ID = 77;
 
     private static Updater instance;
@@ -77,6 +79,7 @@ public final class Updater {
     private volatile boolean waitingPermission; // ушли в «разрешить установку» — по возвращении ставим
     private volatile boolean cancelled;         // человек отменил установку — сами больше не ставим
     private volatile boolean fallbackTried;     // системная сессия не справилась — пробовали обычный установщик
+    private volatile Activity foreground;       // экран приложения, если он сейчас открыт
     private final Pattern assetName = Pattern.compile(Pattern.quote(BuildConfig.UPDATE_PREFIX) + "1\\.0\\.(\\d+)\\.apk");
 
     // Можно ли ставить прямо сейчас (не в эфире) — задаёт приложение
@@ -127,14 +130,44 @@ public final class Updater {
         return o;
     }
 
-    // Проверка не чаще раза в 6 ч (если не попросили явно)
+    // Проверка в фоне — не чаще раза в 6 ч
     public void checkSoon() {
+        checkIfOlder(CHECK_EVERY_MS);
+    }
+
+    private void checkIfOlder(long age) {
+        if (midway()) return; // уже скачиваем или ставим — не сбиваем
         long last = prefs.getLong("lastCheck", 0);
-        if (auto() && System.currentTimeMillis() - last > CHECK_EVERY_MS) check(false);
+        if (auto() && System.currentTimeMillis() - last > age) check(false);
+    }
+
+    // Экран приложения открыт / закрыт. Окна установки открываем с экрана: из фона
+    // Android (особенно HyperOS/MIUI) их не показывает и отменяет установку
+    public void setForeground(Activity activity) {
+        foreground = activity;
+        if (activity != null) checkIfOlder(CHECK_ON_OPEN_MS);
+    }
+
+    private void show(Intent intent) {
+        Activity a = foreground;
+        main.post(() -> {
+            try {
+                if (a != null && !a.isFinishing()) a.startActivity(intent);
+                else context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException e) {
+                // из фона открыть нельзя — остаётся уведомление
+            }
+        });
+    }
+
+    // Обновление уже найдено и в работе (качается, скачано, ставится)
+    private boolean midway() {
+        String s = state;
+        return "downloading".equals(s) || "ready".equals(s) || "installing".equals(s) || "confirm".equals(s);
     }
 
     public void check(boolean byUser) {
-        if (busy) return;
+        if (busy || (!byUser && midway())) return;
         busy = true;
         state = "checking";
         error = null;
@@ -283,7 +316,13 @@ public final class Updater {
         if ("confirm".equals(state)) state = "ready"; // окно Android закрыли без ответа — пробуем заново
         if (needsPermission()) {
             waitingPermission = true;
-            context.startActivity(permissionIntent());
+            show(permissionIntent());
+            return;
+        }
+        if (fallbackTried && apk != null) {
+            // Системная сессия на этом телефоне уже не справилась — сразу обычный установщик
+            fallbackTried = false;
+            fallbackInstall("не установить");
             return;
         }
         install();
@@ -354,14 +393,8 @@ public final class Updater {
         state = "confirm";
         error = null;
         changed();
-        main.post(() -> {
-            try {
-                context.startActivity(view);
-            } catch (RuntimeException e) {
-                // в фоне открыть нельзя — остаётся уведомление
-            }
-            notifyUser("Обновление " + latest + " готово", "Нажмите, чтобы установить", view);
-        });
+        show(view);
+        notifyUser("Обновление " + latest + " готово", "Нажмите, чтобы установить", view);
     }
 
     // Итог установки (из UpdateReceiver)
@@ -370,12 +403,12 @@ public final class Updater {
             confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             state = "confirm"; // ждём, что ответят в окне Android, — сами ничего не повторяем
             changed();
-            try {
-                context.startActivity(confirm); // приложение на экране — Android сразу спросит «Обновить?»
-            } catch (RuntimeException e) {
-                // в фоне открыть окно нельзя
-            }
+            show(confirm);
             notifyUser("Обновление " + latest + " готово", "Нажмите, чтобы установить", confirm);
+        } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED && !fallbackTried) {
+            // Отмену часто присылает сама система (окно не дали показать) — пробуем обычный установщик
+            state = "ready";
+            fallbackInstall("Android отменил установку" + (message != null ? " (" + message + ")" : ""));
         } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
             cancelled = true; // сами больше не предлагаем — только по кнопке «Установить»
             state = "ready";

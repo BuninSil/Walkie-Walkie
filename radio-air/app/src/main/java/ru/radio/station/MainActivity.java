@@ -122,8 +122,8 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
         super.onResume();
         station.addListener(this);
         updater.addListener(updateWatch);
-        updater.checkSoon();
-        updater.resumed(); // вернулись из «разрешить установку» — ставим (и только тогда)
+        updater.setForeground(this); // и проверка обновлений при каждом входе
+        updater.resumed();           // вернулись из «разрешить установку» — ставим (и только тогда)
         main.post(tick);
     }
 
@@ -131,6 +131,7 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
     protected void onPause() {
         station.removeListener(this);
         updater.removeListener(updateWatch);
+        updater.setForeground(null);
         main.removeCallbacks(tick);
         super.onPause();
     }

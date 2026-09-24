@@ -248,14 +248,20 @@ public class MainActivity extends ComponentActivity {
         super.onResume();
         // Пока приложение на экране, Android разрешает запустить фоновый сервис (с микрофоном — если разрешён)
         WalkieService.start(this);
-        updater.checkSoon();
-        updater.resumed(); // вернулись из «разрешить установку» — ставим (и только тогда)
+        updater.setForeground(this); // и проверка обновлений при каждом входе
+        updater.resumed();           // вернулись из «разрешить установку» — ставим (и только тогда)
         // Вернулись из настроек «поверх других приложений»
         if (wantBubble) {
             wantBubble = false;
             if (Settings.canDrawOverlays(this)) WalkieService.setBubbleEnabled(this, true);
             optionsChanged();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        updater.setForeground(null);
+        super.onPause();
     }
 
     @Override
