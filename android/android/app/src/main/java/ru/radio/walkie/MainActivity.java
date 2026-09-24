@@ -11,12 +11,14 @@ import com.getcapacitor.BridgeActivity;
 
 /*
  * Рация для Android: та же страница рации, что и в приложении для ПК, внутри WebView.
- * Здесь только то, чего странице не сделать самой: фоновый приём и кнопка «Назад».
+ * Здесь только то, чего странице не сделать самой: фоновый приём, кнопка «Назад»
+ * и связь с сервером эфира в обход WebView (NativeSocketPlugin).
  */
 public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NativeSocketPlugin.class); // связь с сервером эфира без Origin (см. плагин)
         super.onCreate(savedInstanceState);
 
         // «Назад» сворачивает рацию, а не закрывает: связь с сервером остаётся

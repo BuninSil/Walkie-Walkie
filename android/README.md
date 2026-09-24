@@ -22,9 +22,9 @@
 (брандмауэр при первом запуске HOST спрашивает — нужно разрешить для **частных** сетей). Гостевая
 Wi-Fi сеть роутера часто не пускает устройства друг к другу.
 
-> ПК-рация до этой версии не пускала приложение с телефона (проверка Origin в `air-server.js`).
-> На ПК нужна рация из этого репозитория — или любой сервер эфира, который принимает
-> Origin `http://localhost`.
+Подключаться можно к любому серверу эфира — и к старым версиям ПК-рации, и к `server.py`:
+соединение с сервером открывается из Java (`NativeSocketPlugin`), без заголовка Origin, как у рации
+на ПК. Обновлять сервер ради телефона не нужно.
 
 ## Что отличается от ПК
 
@@ -74,8 +74,9 @@ APK появится в `android/app/build/outputs/apk/debug/app-debug.apk`.
 | Файл | Что это |
 |---|---|
 | `scripts/build-web.js` | Собирает `www/` из `../radio-walkie/web` + `mobile/` |
-| `mobile/mobile.js` | Мост: включает пункты SERVER/AUTO, растягивает рацию на экран |
+| `mobile/mobile.js` | Мост: связь с сервером через Java, пункты SERVER/AUTO, рация на весь экран |
 | `mobile/mobile.css` | Фон, центровка, отключение выделения и жестов браузера |
 | `capacitor.config.json` | Страница открывается с `http://localhost`: микрофон работает, `ws://` к ПК разрешён |
 | `android/app/src/main/java/ru/radio/walkie/MainActivity.java` | «Назад» сворачивает, запуск фонового сервиса |
 | `android/app/src/main/java/ru/radio/walkie/WalkieService.java` | Фоновый приём: уведомление, WakeLock, WifiLock |
+| `android/app/src/main/java/ru/radio/walkie/NativeSocketPlugin.java` | WebSocket к серверу эфира из Java (OkHttp), без Origin |
