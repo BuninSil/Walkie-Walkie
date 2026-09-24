@@ -10,7 +10,7 @@ window.radioMobile = { platform: 'android' };
 /*
  * Связь с сервером эфира — через Java (NativeSocketPlugin), а не через WebSocket из WebView.
  * WebView подписывает соединение «Origin: http://localhost», и серверы эфира, которые пускают
- * только свою страницу, его отклоняют. Из Java соединение идёт без Origin и его пускает любой сервер.
+ * только свою страницу, его отклоняют. Из Java соединение идёт так же, как у рации на ПК.
  * Здесь — замена WebSocket ровно в том объёме, в котором её использует link.js.
  */
 (() => {
@@ -49,7 +49,7 @@ window.radioMobile = { platform: 'android' };
       this.bufferedAmount = 0; // как у WebSocket: байты, ещё не ушедшие в сеть (по данным Java)
       this.onopen = this.onmessage = this.onclose = this.onerror = null;
       sockets.set(this.id, this);
-      plugin.connect({ id: this.id, url }).catch(() => this.event({ type: 'close', code: 1006 }));
+      plugin.connect({ id: this.id, url }).catch(() => this.event({ type: 'close', code: 1006, reason: 'ОШИБКА АДРЕСА' }));
     }
 
     event(e) {
@@ -63,7 +63,7 @@ window.radioMobile = { platform: 'android' };
       } else if (e.type === 'close' && this.readyState !== NativeSocket.CLOSED) {
         this.readyState = NativeSocket.CLOSED;
         sockets.delete(this.id);
-        this.onclose?.({ type: 'close', code: e.code ?? 1006 });
+        this.onclose?.({ type: 'close', code: e.code ?? 1006, reason: e.reason ?? '' });
       }
     }
 

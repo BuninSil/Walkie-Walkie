@@ -9,7 +9,7 @@
  */
 class AirLink {
   constructor(handlers) {
-    this.handlers = handlers; // { status(online), message(msg), audio(stationId, packet) }
+    this.handlers = handlers; // { status(online), message(msg), audio(stationId, packet), error?(reason) }
     this.url = AirLink.pageServer();
     this.ws = null;
     this.online = false;
@@ -18,6 +18,7 @@ class AirLink {
     this.freq = null;         // частота приёмника; null — приёмник выключен
     this.sentFreq = undefined;
     this.tuneTimer = null;
+    this.error = null;        // почему последняя попытка подключиться не удалась (если известно)
   }
 
   // Сервер, который отдал эту страницу (для приложений на ПК и Android его нет — адрес выбирают)
@@ -59,6 +60,7 @@ class AirLink {
     this.ws = null;
     this.url = url;
     this.retry = 0;
+    this.error = null;
     if (old) {
       old.close();
       if (this.online) {
@@ -77,6 +79,7 @@ class AirLink {
       if (this.ws !== ws) return;
       this.online = true;
       this.retry = 0;
+      this.error = null;
       this.sentFreq = undefined;
       this.flushTune();
       this.handlers.status(true);
@@ -96,10 +99,15 @@ class AirLink {
         this.handlers.audio(id, new Uint8Array(e.data, 4));
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       if (this.ws !== ws) return; // это старое соединение, мы уже переключились
       this.online = false;
       this.ws = null;
+      // Причину знает только рация для Android; браузер её не сообщает
+      if (e?.reason) {
+        if (this.retry === 0 || e.reason !== this.error) this.handlers.error?.(e.reason);
+        this.error = e.reason;
+      }
       this.handlers.status(false);
       this.retryTimer = setTimeout(() => this.connect(), Math.min(10000, 500 * 2 ** this.retry++));
     };

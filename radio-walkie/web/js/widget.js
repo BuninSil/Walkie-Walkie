@@ -233,6 +233,7 @@
       render();
     },
     message: onServerMessage,
+    error: (reason) => flash(`НЕТ СВЯЗИ: ${reason}`, 3000),
     audio(id, packet) {
       if (radio.power) liveById.get(id)?.receive(packet, scrKeyring);
     },
@@ -639,7 +640,11 @@
 
   function menuHint(item) {
     if (item.code === 'HOST' && hostInfo) return `ДРУЗЬЯМ: ${hostAddress(hostInfo)}`;
-    if (item.code === 'SERVER') return link.online ? 'НА СВЯЗИ' : link.available ? 'ПОДКЛЮЧАЮСЬ…' : 'НЕ ПОДКЛЮЧЕНО';
+    if (item.code === 'SERVER') {
+      if (link.online) return 'НА СВЯЗИ';
+      if (!link.available) return 'НЕ ПОДКЛЮЧЕНО';
+      return link.error ? `ОШИБКА: ${link.error}` : 'ПОДКЛЮЧАЮСЬ…';
+    }
     return item.hint;
   }
 
