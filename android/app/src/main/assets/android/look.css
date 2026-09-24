@@ -1,26 +1,19 @@
 /*
- * Внешний вид рации на телефоне: скины корпуса, фактуры, экран, неон, фоны, шрифты.
+ * Внешний вид рации на телефоне: расцветки и фактуры корпуса, экран, свечение, фоны, шрифты.
  * Всё — поверх стилей рации (widget.css), раскладку и размеры не трогаем.
  * Цвета приходят переменными от look.js, режимы — атрибутами на <html>:
- *   data-skin, data-finish, data-keys, data-lcd, data-pattern, data-neon, data-pulse, data-antenna
+ *   data-finish, data-lcd, data-pattern, data-lcd-image, data-glow, data-antenna
  */
 
 /* ───────── Шрифты (OFL, см. fonts/LICENSE-FONTS.txt) ───────── */
 
-@font-face { font-family: 'WK Pixel'; src: url(fonts/press-start-2p-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
-@font-face { font-family: 'WK Pixel'; src: url(fonts/press-start-2p-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
 @font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'WK Techno'; src: url(fonts/jura-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
 @font-face { font-family: 'WK Techno'; src: url(fonts/jura-cyrillic-700-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
 @font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'WK Round'; src: url(fonts/comfortaa-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
-@font-face { font-family: 'WK Round'; src: url(fonts/comfortaa-cyrillic-700-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'WK Space'; src: url(fonts/orbitron-latin-700-normal.woff2) format('woff2'); }
-@font-face { font-family: 'WK Terminal'; src: url(fonts/vt323-latin-400-normal.woff2) format('woff2'); }
 @font-face { font-family: 'WK Seg7'; src: url(fonts/DSEG7Classic-Bold.woff2) format('woff2'); }
-@font-face { font-family: 'WK Seg14'; src: url(fonts/DSEG14Classic-Bold.woff2) format('woff2'); }
 
 /* Шрифт экрана — через переменную рации --lcd-font; крупные строки масштабируются под шрифт */
 .lcd { font-family: var(--lcd-font) !important; }
@@ -77,95 +70,11 @@ html[data-finish="carbon"] .body {
     linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
 }
 
-html[data-finish="camo"] .body {
-  background:
-    radial-gradient(30px 20px at 20% 15%, rgba(0, 0, 0, 0.35) 60%, transparent 62%),
-    radial-gradient(40px 26px at 75% 30%, rgba(255, 255, 255, 0.1) 60%, transparent 62%),
-    radial-gradient(34px 22px at 35% 55%, rgba(0, 0, 0, 0.3) 60%, transparent 62%),
-    radial-gradient(44px 30px at 80% 78%, rgba(0, 0, 0, 0.32) 60%, transparent 62%),
-    radial-gradient(30px 20px at 15% 88%, rgba(255, 255, 255, 0.08) 60%, transparent 62%),
-    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
-  background-size: 120px 140px, 130px 150px, 110px 120px, 140px 160px, 100px 130px, auto !important;
-}
-
 html[data-finish="rubber"] .body {
   background:
     radial-gradient(circle, rgba(255, 255, 255, 0.05) 0.8px, transparent 1.2px) 0 0 / 4px 4px,
     linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
 }
-
-/* ───────── Форма кнопок ───────── */
-
-html[data-keys="square"] .key { border-radius: 3px !important; }
-html[data-keys="pill"] .key { border-radius: 17px !important; }
-html[data-keys="round"] .key { border-radius: 14px !important; }
-
-/* ───────── Скины корпуса ───────── */
-
-/* Сенсорная: стеклянный корпус, плоские «тач»-кнопки, без антенны */
-html[data-skin="touch"] .body {
-  border-radius: 30px !important;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 40%, transparent 60%),
-    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 24px 40px -10px rgba(0, 0, 0, 0.8) !important;
-}
-html[data-skin="touch"] .grille {
-  background: linear-gradient(#050506, #050506) 50% 14px / 64px 5px no-repeat, transparent !important;
-  box-shadow: none !important;
-}
-html[data-skin="touch"] .brand, html[data-skin="touch"] .model { background: transparent !important; }
-html[data-skin="touch"] .lcd { border-radius: 16px !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 22px rgba(0, 0, 0, 0.25) !important; }
-html[data-skin="touch"] .key {
-  background: rgba(255, 255, 255, 0.07) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
-  border-radius: 13px;
-}
-html[data-skin="touch"] .key--side { background: rgba(255, 255, 255, 0.13) !important; }
-html[data-skin="touch"] .key:active, html[data-skin="touch"] .key.is-pressed { background: rgba(255, 255, 255, 0.22) !important; transform: scale(0.97); }
-html[data-skin="touch"] .antenna { visibility: hidden; }
-html[data-skin="touch"] .knob { border-radius: 50% !important; height: 44px !important; top: 50px !important; background: linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important; }
-html[data-skin="touch"] .side__ptt, html[data-skin="touch"] .side__key { border-radius: 12px 0 0 12px !important; background: linear-gradient(90deg, var(--plastic-lo), var(--plastic-hi)) !important; }
-html[data-skin="touch"] .mic i { width: 18px; height: 3px; border-radius: 2px; }
-
-/* Ретро: угловатый корпус 80-х, решётка из прорезей */
-html[data-skin="retro"] .body { border-radius: 12px 12px 18px 18px !important; }
-html[data-skin="retro"] .grille {
-  border-radius: 6px !important;
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0 3px, transparent 3px 7px) 12px 8px / calc(100% - 24px) 32px no-repeat,
-    linear-gradient(180deg, var(--plastic-lo), var(--plastic-hi)) !important;
-}
-html[data-skin="retro"] .brand, html[data-skin="retro"] .model { background: var(--plastic-hi) !important; color: #3b2f22 !important; }
-html[data-skin="retro"] .lcd { border-radius: 3px !important; }
-html[data-skin="retro"] .key { border-radius: 4px; }
-
-/* Военная: толстый резиновый бампер */
-html[data-skin="rugged"] .body {
-  border-radius: 22px 22px 30px 30px !important;
-  box-shadow:
-    0 0 0 4px #15170f,
-    0 0 0 6px color-mix(in srgb, var(--plastic-lo) 70%, #000),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 18px 26px -8px rgba(0, 0, 0, 0.8) !important;
-}
-html[data-skin="rugged"] .lcd { box-shadow: 0 0 0 4px #0b0c08, 0 0 0 5px #3a3d2c, inset 0 2px 6px rgba(0, 0, 0, 0.35) !important; }
-html[data-skin="rugged"] .key { border-radius: 6px; }
-
-/* Минимал: плоско, без бликов и теней */
-html[data-skin="minimal"] .body { background: var(--plastic-hi) !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) !important; border-radius: 28px !important; }
-html[data-skin="minimal"] .grille { background: transparent !important; box-shadow: none !important; }
-html[data-skin="minimal"] .brand, html[data-skin="minimal"] .model { background: transparent !important; }
-html[data-skin="minimal"] .lcd { box-shadow: none !important; border-radius: 12px !important; }
-html[data-skin="minimal"] .key { background: var(--key-hi) !important; box-shadow: none !important; border-radius: 10px; }
-html[data-skin="minimal"] .key--side { background: var(--key-side-hi) !important; }
-html[data-skin="minimal"] .antenna { background: var(--plastic-lo) !important; box-shadow: none !important; }
-
-/* Неон-скин: чёрный корпус, всё светится (сам неон включается data-neon) */
-html[data-skin="neon"] .body { background: linear-gradient(180deg, #0b0b12, #050508) !important; }
-html[data-skin="neon"] .key { background: #0b0b12 !important; }
-html[data-skin="neon"] .grille { background: repeating-linear-gradient(180deg, color-mix(in srgb, var(--wk-neon) 35%, transparent) 0 2px, transparent 2px 7px) 12px 9px / calc(100% - 24px) 32px no-repeat, #07070b !important; }
-html[data-skin="neon"] .brand, html[data-skin="neon"] .model { background: #07070b !important; color: var(--wk-neon) !important; text-shadow: 0 0 6px var(--wk-neon); }
 
 html[data-antenna="off"] .antenna { visibility: hidden; }
 
@@ -204,61 +113,29 @@ html[data-pattern="hex"] .lcd::before { background: radial-gradient(circle at 50
 .lcd > * { position: relative; z-index: 1; }
 .lcd > .lcd__msg { position: absolute; z-index: 2; }
 
-/* Своя картинка на экране — поверх неё полупрозрачная подсветка, чтобы текст читался */
+/* Фон экрана (готовый или своя картинка) — поверх него полупрозрачная подсветка, чтобы цифры читались */
 html[data-lcd-image] .lcd.is-lit, html[data-lcd-image] .lcd:not(.is-lit) {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--lcd-lit) calc(var(--wk-lcd-tint, 55) * 1%), transparent), color-mix(in srgb, var(--lcd-lit-lo) calc(var(--wk-lcd-tint, 55) * 1%), transparent)),
-    var(--wk-lcd-image) center / cover !important;
+    var(--wk-lcd-image) !important;
 }
 html[data-lcd-image] .lcd .lcd__msg { background: color-mix(in srgb, var(--lcd-lit) 88%, transparent) !important; }
 
-/* ───────── Неон ───────── */
+/* ───────── Мягкое свечение: экран и надписи светятся цветом цифр, корпус — как был ───────── */
 
-html[data-neon] .body {
+html[data-glow] .lcd {
   box-shadow:
-    0 0 0 1.5px var(--wk-neon),
-    0 0 calc(12px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 80%, transparent),
-    0 0 calc(34px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 35%, transparent),
-    inset 0 0 calc(14px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 22%, transparent) !important;
+    0 0 0 3px #0b0c0e,
+    0 0 0 4px #2e2f35,
+    0 0 calc(18px * var(--wk-glow)) color-mix(in srgb, var(--ink) 35%, transparent),
+    inset 0 0 calc(16px * var(--wk-glow)) color-mix(in srgb, var(--ink) 18%, transparent) !important;
 }
-html[data-neon] .key {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--wk-neon) 85%, transparent),
-    0 0 calc(7px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 55%, transparent),
-    inset 0 0 calc(6px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 18%, transparent) !important;
+html[data-glow] .lcd .line__freq, html[data-glow] .lcd .menu__value, html[data-glow] .lcd .lcd__msg {
+  text-shadow: 0 0 calc(8px * var(--wk-glow)) color-mix(in srgb, var(--ink) 60%, transparent);
 }
-html[data-neon] .key__main { text-shadow: 0 0 calc(5px * var(--wk-glow)) color-mix(in srgb, var(--label) 70%, transparent); }
-html[data-neon] .key__alt, html[data-neon] .key--f .key__main { text-shadow: 0 0 calc(6px * var(--wk-glow)) var(--label-alt); }
-html[data-neon] .key:active, html[data-neon] .key.is-pressed {
-  box-shadow: 0 0 0 1.5px var(--wk-neon), 0 0 calc(16px * var(--wk-glow)) var(--wk-neon), inset 0 0 calc(12px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 45%, transparent) !important;
-}
-html[data-neon] .lcd {
-  box-shadow:
-    0 0 0 2px var(--wk-neon2),
-    0 0 calc(14px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon2) 70%, transparent),
-    inset 0 0 calc(18px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon2) 25%, transparent) !important;
-}
-html[data-neon] .side__ptt, html[data-neon] .side__key { box-shadow: 0 0 0 1px var(--wk-neon), 0 0 calc(8px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 60%, transparent) !important; color: var(--wk-neon) !important; }
-html[data-neon] .antenna { box-shadow: 0 0 0 1px var(--wk-neon), 0 0 calc(10px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 60%, transparent) !important; }
-html[data-neon] .knob { box-shadow: 0 0 0 1px var(--wk-neon), 0 0 calc(10px * var(--wk-glow)) color-mix(in srgb, var(--wk-neon) 60%, transparent) !important; }
-html[data-neon] .knob__mark { background: var(--wk-neon) !important; box-shadow: 0 0 6px var(--wk-neon); }
-html[data-neon] .brand, html[data-neon] .model { text-shadow: 0 0 6px currentColor; }
-html[data-neon] .chrome__btn { border-color: var(--wk-neon) !important; box-shadow: 0 0 8px color-mix(in srgb, var(--wk-neon) 60%, transparent); color: var(--wk-neon) !important; }
-
-/* Пульсация неона */
-html[data-neon][data-pulse] .body::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  box-shadow: 0 0 calc(26px * var(--wk-glow)) var(--wk-neon);
-  animation: wk-pulse 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes wk-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
-
-/* Неоновая панель настроек */
-html[data-neon] .wk-sheet { box-shadow: 0 -1px 0 var(--wk-neon), 0 -10px 40px color-mix(in srgb, var(--wk-neon) 30%, transparent) !important; }
+html[data-glow] .key__alt, html[data-glow] .key--f .key__main { text-shadow: 0 0 calc(6px * var(--wk-glow)) color-mix(in srgb, var(--label-alt) 70%, transparent); }
+html[data-glow] .led.is-tx { box-shadow: 0 0 calc(16px * var(--wk-glow)) 3px var(--led-tx); }
+html[data-glow] .led.is-rx { box-shadow: 0 0 calc(16px * var(--wk-glow)) 3px var(--led-rx); }
 
 /* ───────── Редактор внешнего вида ───────── */
 

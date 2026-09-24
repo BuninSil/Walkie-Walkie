@@ -14,57 +14,57 @@
   /* ───────── Что можно выбрать ───────── */
 
   const DEFAULTS = {
-    skin: 'classic', finish: 'matte', body: '#26272b', keys: '#2e2f35', keyShape: 'soft',
+    finish: 'matte', body: '#26272b', keys: '#2e2f35',
     label: '#ecebe6', accent: '#ff9a3c', antenna: true, knob: '#ff9a3c',
-    lcdStyle: 'classic', lcd: '#c6d6b2', lcd2: '#8ad4ff', ink: 'auto', pattern: 'none', lcdTint: 55, lcdImage: false,
+    lcdStyle: 'classic', lcd: '#c6d6b2', lcd2: '#8ad4ff', ink: 'auto', pattern: 'none', lcdBg: 'none', lcdTint: 55,
     bg: 'dark', bgColor: '#101114', bgImage: false, bgDim: 35,
-    neon: false, neonColor: '#00e5ff', neon2: '#ff2bd6', glow: 1, pulse: false,
+    glow: false, glowLevel: 0.6,
     ledTx: '#ff3b2f', ledRx: '#37f06f',
     fontLcd: 'default', fontKeys: 'default',
     haptics: true,
   };
 
-  const SKINS = {
-    classic: 'Классика', touch: 'Сенсорная', neon: 'Неон', retro: 'Ретро', rugged: 'Военная', minimal: 'Минимал',
-  };
-  const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина', camo: 'Камуфляж' };
-  const KEY_SHAPES = { soft: 'Мягкие', round: 'Круглые', pill: 'Капсулы', square: 'Квадратные' };
+  const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина' };
   const LCD_STYLES = {
     classic: 'Классика', dark: 'Тёмный', oled: 'OLED', crt: 'ЭЛТ', glass: 'Стекло', gradient: 'Градиент',
   };
-  const PATTERNS = { none: 'Нет', grid: 'Сетка', dots: 'Точки', scan: 'Строки', hex: 'Соты' };
+  const PATTERNS = { none: 'Нет', dots: 'Точки', grid: 'Сетка', scan: 'Строки', hex: 'Соты' };
+
+  // Фоны экрана: поверх — полупрозрачная подсветка (ползунок), чтобы цифры читались
+  const LCD_BACKGROUNDS = {
+    none: { name: 'Без фона', css: null },
+    sky: { name: 'Небо', css: 'linear-gradient(180deg, #7fc4ff 0%, #d9efff 70%, #ffffff 100%)' },
+    sunset: { name: 'Закат', css: 'linear-gradient(160deg, #ffb36b 0%, #ff6f91 55%, #845ec2 100%)' },
+    sea: { name: 'Море', css: 'linear-gradient(180deg, #05bfdb 0%, #088395 50%, #0a4d68 100%)' },
+    mint: { name: 'Мята', css: 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)' },
+    aurora: { name: 'Сияние', css: 'radial-gradient(ellipse at 20% 0%, #5cffb0 0%, transparent 55%), radial-gradient(ellipse at 90% 30%, #b86bff 0%, transparent 55%), linear-gradient(180deg, #0b1d2e, #06121c)' },
+    stars: { name: 'Звёзды', css: 'radial-gradient(1px 1px at 12% 22%, #fff, transparent), radial-gradient(1px 1px at 38% 70%, #fff, transparent), radial-gradient(1.5px 1.5px at 66% 30%, #cfe6ff, transparent), radial-gradient(1px 1px at 85% 75%, #fff, transparent), radial-gradient(1px 1px at 52% 12%, #fff, transparent), radial-gradient(ellipse at 70% 90%, #2b1a55, transparent 60%), #070a18' },
+    circuit: { name: 'Плата', css: 'linear-gradient(90deg, rgba(180, 255, 200, 0.35) 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(rgba(180, 255, 200, 0.35) 1px, transparent 1px) 0 0 / 18px 18px, radial-gradient(circle, #d9ffe5 1.5px, transparent 2px) 9px 9px / 18px 18px, #0f5132' },
+    paper: { name: 'Бумага', css: 'repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.08) 0 1px, transparent 1px 12px), linear-gradient(180deg, #f3ead6, #e6d8b8)' },
+    carbon: { name: 'Карбон', css: 'repeating-linear-gradient(45deg, #1c1c20 0 3px, #26262b 3px 6px)' },
+    waves: { name: 'Волны', css: 'repeating-radial-gradient(circle at 0% 100%, #4cc9f0 0 6px, #4361ee 6px 12px, #3a0ca3 12px 18px)' },
+    camo: { name: 'Камуфляж', css: 'radial-gradient(40px 26px at 20% 25%, #3b4129 60%, transparent 62%) 0 0 / 110px 90px, radial-gradient(50px 30px at 70% 65%, #1f2416 60%, transparent 62%) 0 0 / 130px 100px, radial-gradient(36px 22px at 45% 80%, #6b6f45 60%, transparent 62%) 0 0 / 100px 80px, #4b5234' },
+    image: { name: 'Своя картинка', css: null },
+  };
 
   const COLORS = {
-    body: ['#26272b', '#111114', '#4b5234', '#25324d', '#d86b1c', '#7d2226', '#a38b5e', '#e3e4e6', '#2d6a4f', '#5b2a86', '#c2185b', '#0f766e', '#1d4ed8', '#ffd23c'],
-    keys: ['#2e2f35', '#16171b', '#3b4129', '#2c3850', '#4a4234', '#5a1f22', '#e3e4e6', '#1e3a5f', '#3d2b56', '#0b0b12'],
-    label: ['#ecebe6', '#ffffff', '#b9b6ae', '#151515', '#ffd23c', '#4cd2ff', '#6ee06e', '#ff9ad5'],
-    accent: ['#ff9a3c', '#ffd23c', '#4cd2ff', '#6ee06e', '#ff5a4c', '#b86bff', '#ff2bd6', '#ffffff'],
-    lcd: ['#c6d6b2', '#ffcf7a', '#b8e3f5', '#eef0ea', '#ffb0a6', '#d5b8ff', '#9bffc8', '#00e5ff', '#ff2bd6', '#39ff14', '#ffb000'],
-    neon: ['#00e5ff', '#ff2bd6', '#39ff14', '#ffb000', '#ff3b2f', '#b86bff', '#ffffff', '#2b6bff'],
-    bg: ['#101114', '#000000', '#1b2230', '#241a2f', '#10231c', '#2a1a12', '#f2efe9'],
-    led: ['#ff3b2f', '#37f06f', '#00e5ff', '#ff2bd6', '#ffb000', '#ffffff', '#b86bff'],
+    body: ['#26272b', '#141417', '#d86b1c', '#4b5234', '#25324d', '#a38b5e', '#c9cbcf', '#6e1f23', '#2f3d33', '#3a3340'],
+    keys: ['#2e2f35', '#1a1b1f', '#3b4129', '#2c3850', '#4a4234', '#3a3b40', '#4a1c1f'],
+    label: ['#ecebe6', '#ffffff', '#c9c6be', '#ffd9a0'],
+    accent: ['#ff9a3c', '#ffd23c', '#4cd2ff', '#6ee06e', '#ff5a4c', '#ecebe6'],
+    lcd: ['#c6d6b2', '#ffcf7a', '#b8e3f5', '#eef0ea', '#ffb0a6', '#d5e8a8', '#d5b8ff', '#9bffc8', '#ffe08a'],
+    glowLcd: ['#7dffb0', '#ffb000', '#5fd7ff', '#ecebe6', '#ff6f61', '#39ff14', '#ff2bd6', '#00e5ff', '#b86bff'],
+    bg: ['#101114', '#000000', '#141a24', '#121a14', '#1c1214', '#1a1a1a'],
+    led: ['#ff3b2f', '#37f06f', '#5fd7ff', '#ffb000', '#ffffff'],
   };
 
   const BACKGROUNDS = {
     dark: { name: 'Тёмный', css: 'radial-gradient(ellipse at 50% 35%, #23252a 0%, #0d0e10 70%)' },
-    graphite: { name: 'Графит', css: 'linear-gradient(160deg, #2b2d33, #121316)' },
-    night: { name: 'Ночной город', css: 'radial-gradient(ellipse at 50% 110%, #ff2bd6 0%, #5b1a8f 30%, #120b2e 65%, #05040d 100%)' },
-    sunset: { name: 'Закат', css: 'linear-gradient(180deg, #1b1035 0%, #6d1b5a 45%, #ff6a3d 80%, #ffc15e 100%)' },
-    ocean: { name: 'Океан', css: 'linear-gradient(180deg, #021526 0%, #03346e 55%, #1f6fa6 100%)' },
-    forest: { name: 'Лес', css: 'linear-gradient(180deg, #0b1a12 0%, #173d2a 60%, #2f6b45 100%)' },
-    space: {
-      name: 'Космос',
-      css: 'radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #cde, transparent), radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 10% 85%, #fff, transparent), radial-gradient(ellipse at 70% 80%, #2b1a55 0%, transparent 60%), #05050c',
-    },
-    synth: {
-      name: 'Синтвейв',
-      css: 'linear-gradient(transparent 60%, rgba(255, 43, 214, 0.35) 60.5%, transparent 61%) 0 0 / 100% 28px, linear-gradient(90deg, rgba(255, 43, 214, 0.25) 1px, transparent 1px) 0 0 / 28px 100%, linear-gradient(180deg, #0d0221 0%, #2d0b4e 55%, #ff2bd6 140%)',
-    },
-    carbon: { name: 'Карбон', css: 'repeating-linear-gradient(45deg, #151518 0 4px, #1d1d21 4px 8px)' },
-    camo: {
-      name: 'Камуфляж',
-      css: 'radial-gradient(60px 40px at 20% 20%, #3b4129 60%, transparent 62%) 0 0 / 180px 180px, radial-gradient(70px 50px at 70% 60%, #1f2416 60%, transparent 62%) 0 0 / 200px 200px, radial-gradient(50px 36px at 40% 80%, #5a5f3c 60%, transparent 62%) 0 0 / 160px 160px, #2c3120',
-    },
+    graphite: { name: 'Графит', css: 'linear-gradient(180deg, #25272c, #121316)' },
+    night: { name: 'Ночь', css: 'radial-gradient(ellipse at 50% 30%, #1d2636 0%, #0a0d13 75%)' },
+    forest: { name: 'Хвоя', css: 'radial-gradient(ellipse at 50% 30%, #1d2a21 0%, #0a0f0b 75%)' },
+    wine: { name: 'Бордо', css: 'radial-gradient(ellipse at 50% 30%, #2a1a1d 0%, #0f0a0b 75%)' },
+    carbon: { name: 'Карбон', css: 'repeating-linear-gradient(45deg, #121214 0 4px, #18181b 4px 8px)' },
     color: { name: 'Свой цвет', css: null },
     image: { name: 'Своя картинка', css: null },
   };
@@ -73,67 +73,25 @@
   const FONTS = {
     default: { name: 'Стандарт', family: null, fs: 1, small: 1, sample: 'Аа 12' },
     mono: { name: 'Моно', family: "'WK Mono', monospace", fs: 1, small: 1, sample: 'Аа 12' },
+    seg7: { name: 'Сегменты', family: "'WK Seg7', 'WK Mono', monospace", fs: 0.92, small: 1, sample: '88.8' },
     techno: { name: 'Техно', family: "'WK Techno', sans-serif", fs: 1.02, small: 1.05, sample: 'Аа 12' },
     heavy: { name: 'Жирный', family: "'WK Heavy', sans-serif", fs: 0.96, small: 1, sample: 'Аа 12' },
-    round: { name: 'Округлый', family: "'WK Round', sans-serif", fs: 0.94, small: 1, sample: 'Аа 12' },
-    pixel: { name: 'Пиксель', family: "'WK Pixel', monospace", fs: 0.66, small: 0.8, sample: 'Аа 12' },
-    seg7: { name: 'Сегменты', family: "'WK Seg7', 'WK Mono', monospace", fs: 0.92, small: 1, sample: '88.8' },
-    seg14: { name: 'Сегменты 14', family: "'WK Seg14', 'WK Mono', monospace", fs: 0.8, small: 0.95, sample: 'AB 12' },
-    terminal: { name: 'Терминал', family: "'WK Terminal', 'WK Mono', monospace", fs: 1.25, small: 1.25, sample: 'Aa 12' },
-    space: { name: 'Космос', family: "'WK Space', 'WK Techno', sans-serif", fs: 0.86, small: 0.95, sample: 'Aa 12' },
-    serif: { name: 'С засечками', family: 'serif', fs: 1, small: 1, sample: 'Аа 12' },
-    condensed: { name: 'Узкий', family: "'sans-serif-condensed', sans-serif", fs: 1.05, small: 1.05, sample: 'Аа 12' },
-    hand: { name: 'Рукописный', family: 'cursive', fs: 1.05, small: 1.1, sample: 'Аа 12' },
-    casual: { name: 'Комикс', family: "'casual', 'Comic Sans MS', cursive", fs: 0.95, small: 1, sample: 'Аа 12' },
   };
+  const LCD_FONTS = ['default', 'mono', 'seg7', 'techno'];
+  const KEY_FONTS = ['default', 'mono', 'techno', 'heavy'];
 
-  // Темы — готовые наборы всего сразу
+  // Темы — расцветки в родном стиле рации
   const THEMES = {
-    classic: { name: 'Классика UV-K5', sw: 'linear-gradient(135deg, #26272b 50%, #c6d6b2 50%)', set: {} },
-    cyber: {
-      name: 'Киберпанк', sw: 'linear-gradient(135deg, #ff2bd6, #00e5ff)',
-      set: { skin: 'neon', body: '#0b0b12', keys: '#0b0b12', label: '#e8f7ff', accent: '#ff2bd6', lcdStyle: 'dark', lcd: '#00e5ff', pattern: 'scan', bg: 'night', neon: true, neonColor: '#ff2bd6', neon2: '#00e5ff', glow: 1.2, pulse: true, fontLcd: 'techno', fontKeys: 'techno', ledRx: '#00e5ff', ledTx: '#ff2bd6', knob: '#ff2bd6' },
-    },
-    glass: {
-      name: 'Сенсорная Glass', sw: 'linear-gradient(135deg, #1d4ed8, #b8e3f5)',
-      set: { skin: 'touch', finish: 'gloss', body: '#1e2a44', keys: '#2c3850', label: '#ffffff', accent: '#4cd2ff', lcdStyle: 'glass', lcd: '#b8e3f5', bg: 'ocean', fontLcd: 'round', fontKeys: 'round', knob: '#4cd2ff' },
-    },
-    retro: {
-      name: 'Ретро 80-х', sw: 'linear-gradient(135deg, #d8cfb8 50%, #ffb000 50%)',
-      set: { skin: 'retro', finish: 'matte', body: '#d8cfb8', keys: '#4a4234', label: '#f5eedc', accent: '#ff6a00', lcdStyle: 'classic', lcd: '#ffcf7a', pattern: 'dots', bg: 'sunset', fontLcd: 'seg14', fontKeys: 'mono', knob: '#ff6a00', antenna: true },
-    },
-    army: {
-      name: 'Военная', sw: 'linear-gradient(135deg, #4b5234 50%, #ffcf7a 50%)',
-      set: { skin: 'rugged', finish: 'rubber', body: '#4b5234', keys: '#3b4129', label: '#e6e2cf', accent: '#ffd23c', lcdStyle: 'classic', lcd: '#ffcf7a', pattern: 'grid', bg: 'camo', fontLcd: 'heavy', fontKeys: 'heavy', knob: '#ffd23c' },
-    },
-    matrix: {
-      name: 'Матрица', sw: 'linear-gradient(135deg, #000 50%, #39ff14 50%)',
-      set: { skin: 'neon', body: '#050805', keys: '#060a06', label: '#9bff8a', accent: '#39ff14', lcdStyle: 'oled', lcd: '#39ff14', pattern: 'scan', bg: 'color', bgColor: '#000000', neon: true, neonColor: '#39ff14', neon2: '#39ff14', glow: 0.9, fontLcd: 'terminal', fontKeys: 'mono', ledRx: '#39ff14', knob: '#39ff14' },
-    },
-    arctic: {
-      name: 'Арктика', sw: 'linear-gradient(135deg, #e3e4e6 50%, #4cd2ff 50%)',
-      set: { skin: 'minimal', finish: 'gloss', body: '#e3e4e6', keys: '#2c3850', label: '#ffffff', accent: '#1d9bf0', lcdStyle: 'classic', lcd: '#b8e3f5', bg: 'graphite', fontLcd: 'default', knob: '#1d9bf0' },
-    },
-    sunset: {
-      name: 'Закат', sw: 'linear-gradient(135deg, #ff6a3d, #b86bff)',
-      set: { skin: 'touch', finish: 'gloss', body: '#d86b1c', keys: '#3d2b56', label: '#fff4e8', accent: '#ffd23c', lcdStyle: 'gradient', lcd: '#ffcf7a', lcd2: '#ff9ad5', bg: 'sunset', neon: true, neonColor: '#ff9a3c', neon2: '#b86bff', glow: 0.7, fontLcd: 'round', fontKeys: 'round', knob: '#ffd23c' },
-    },
-    synth: {
-      name: 'Синтвейв', sw: 'linear-gradient(135deg, #2d0b4e, #ff2bd6)',
-      set: { skin: 'neon', body: '#120720', keys: '#1a0b2e', label: '#ffe6fb', accent: '#00e5ff', lcdStyle: 'crt', lcd: '#ff2bd6', bg: 'synth', neon: true, neonColor: '#b86bff', neon2: '#ff2bd6', glow: 1.3, pulse: true, fontLcd: 'space', fontKeys: 'space', ledRx: '#00e5ff', ledTx: '#ff2bd6', knob: '#00e5ff' },
-    },
-    stealth: {
-      name: 'Стелс', sw: 'linear-gradient(135deg, #111114 50%, #eef0ea 50%)',
-      set: { skin: 'minimal', finish: 'carbon', body: '#141417', keys: '#1c1c20', label: '#d7d7d7', accent: '#b9b6ae', lcdStyle: 'oled', lcd: '#eef0ea', bg: 'carbon', fontLcd: 'mono', fontKeys: 'default', knob: '#eef0ea', antenna: false },
-    },
-    amber: {
-      name: 'Ламповый', sw: 'linear-gradient(135deg, #2a1a12 50%, #ffb000 50%)',
-      set: { skin: 'retro', finish: 'metal', body: '#5a3a22', keys: '#2a1a12', label: '#ffd9a0', accent: '#ffb000', lcdStyle: 'crt', lcd: '#ffb000', bg: 'color', bgColor: '#140c06', fontLcd: 'terminal', fontKeys: 'mono', knob: '#ffb000', ledRx: '#ffb000' },
-    },
-    toxic: {
-      name: 'Токсик', sw: 'linear-gradient(135deg, #ffd23c, #39ff14)',
-      set: { skin: 'rugged', finish: 'camo', body: '#3a3f1a', keys: '#1f2410', label: '#e8ff9c', accent: '#39ff14', lcdStyle: 'dark', lcd: '#c8ff00', pattern: 'hex', bg: 'forest', neon: true, neonColor: '#c8ff00', neon2: '#39ff14', glow: 0.8, fontLcd: 'seg7', fontKeys: 'heavy', knob: '#c8ff00' },
-    },
+    classic: { name: 'Классика', sw: ['#26272b', '#c6d6b2'], set: {} },
+    orange: { name: 'Оранжевая', sw: ['#d86b1c', '#c6d6b2'], set: { body: '#d86b1c', keys: '#26272b', accent: '#ffd23c', knob: '#26272b' } },
+    olive: { name: 'Олива', sw: ['#4b5234', '#ffcf7a'], set: { body: '#4b5234', keys: '#3b4129', finish: 'rubber', lcd: '#ffcf7a', accent: '#ffd23c', knob: '#ffd23c', bg: 'forest' } },
+    navy: { name: 'Синяя ночь', sw: ['#25324d', '#b8e3f5'], set: { body: '#25324d', keys: '#2c3850', lcd: '#b8e3f5', accent: '#4cd2ff', knob: '#4cd2ff', bg: 'night' } },
+    sand: { name: 'Песок', sw: ['#a38b5e', '#ffcf7a'], set: { body: '#a38b5e', keys: '#4a4234', lcd: '#ffcf7a', accent: '#ff9a3c' } },
+    white: { name: 'Белая', sw: ['#c9cbcf', '#b8e3f5'], set: { body: '#c9cbcf', keys: '#3a3b40', finish: 'gloss', lcd: '#b8e3f5', accent: '#1d9bf0', knob: '#1d9bf0', bg: 'graphite' } },
+    red: { name: 'Красная', sw: ['#6e1f23', '#eef0ea'], set: { body: '#6e1f23', keys: '#2e2f35', lcd: '#eef0ea', accent: '#ffd23c', bg: 'wine' } },
+    carbon: { name: 'Карбон', sw: ['#141417', '#eef0ea'], set: { body: '#141417', keys: '#1a1b1f', finish: 'carbon', lcd: '#eef0ea', accent: '#ecebe6', knob: '#ecebe6', bg: 'carbon' } },
+    nightGreen: { name: 'Ночной', sw: ['#141417', '#7dffb0'], set: { body: '#1c1d21', keys: '#1a1b1f', lcdStyle: 'dark', lcd: '#7dffb0', glow: true, accent: '#6ee06e', knob: '#6ee06e' } },
+    nightAmber: { name: 'Ночной янтарь', sw: ['#141417', '#ffb000'], set: { body: '#1c1d21', keys: '#1a1b1f', lcdStyle: 'dark', lcd: '#ffb000', glow: true, accent: '#ffb000', knob: '#ffb000', ledRx: '#ffb000' } },
   };
 
   /* ───────── Хранение ───────── */
@@ -161,7 +119,18 @@
         /* нет старых — по умолчанию */
       }
     }
-    return { ...DEFAULTS, ...saved };
+    const l = { ...DEFAULTS, ...saved };
+    // Значения из прошлых версий редактора, которых больше нет, — к умолчаниям
+    if (!FINISHES[l.finish]) l.finish = DEFAULTS.finish;
+    if (!LCD_STYLES[l.lcdStyle]) l.lcdStyle = DEFAULTS.lcdStyle;
+    if (!PATTERNS[l.pattern]) l.pattern = 'none';
+    if (!LCD_BACKGROUNDS[l.lcdBg]) l.lcdBg = saved.lcdImage ? 'image' : 'none';
+    if (!BACKGROUNDS[l.bg]) l.bg = DEFAULTS.bg;
+    if (!LCD_FONTS.includes(l.fontLcd)) l.fontLcd = 'default';
+    if (!KEY_FONTS.includes(l.fontKeys)) l.fontKeys = 'default';
+    if (typeof l.glow !== 'boolean') l.glow = Boolean(saved.neon);
+    for (const k of ['skin', 'keyShape', 'lcdImage', 'neon', 'neonColor', 'neon2', 'pulse']) delete l[k];
+    return l;
   }
 
   let look = load();
@@ -305,10 +274,7 @@
     }
     v['--wk-lcd2'] = look.lcd2;
     v['--wk-lcd-tint'] = String(look.lcdTint);
-
-    v['--wk-neon'] = look.neonColor;
-    v['--wk-neon2'] = look.neon2;
-    v['--wk-glow'] = String(look.glow);
+    v['--wk-glow'] = String(look.glowLevel);
 
     const lf = FONTS[look.fontLcd] || FONTS.default;
     const kf = FONTS[look.fontKeys] || FONTS.default;
@@ -326,22 +292,26 @@
     let css = `html:root { ${Object.entries(v).map(([k, x]) => `${k}: ${x};`).join(' ')} }`;
     css += ` .knob__mark { background: ${look.knob} !important; }`;
     if (bodyLight) css += ' .brand { color: #3b3a36 !important; }';
-    if (images.lcd && look.lcdImage) css += ` html:root { --wk-lcd-image: url("${images.lcd}"); }`;
+    const lcdBg = lcdBackground();
+    if (lcdBg) css += ` html:root { --wk-lcd-image: ${lcdBg}; }`;
     style.textContent = css;
 
     const d = root.dataset;
-    d.skin = look.skin;
     d.finish = look.finish;
-    d.keys = look.keyShape;
     d.lcd = look.lcdStyle;
     d.pattern = look.pattern;
     d.antenna = look.antenna ? 'on' : 'off';
-    toggleAttr('neon', look.neon || look.skin === 'neon');
-    toggleAttr('pulse', look.pulse);
-    toggleAttr('lcdImage', Boolean(look.lcdImage && images.lcd));
+    toggleAttr('glow', look.glow);
+    toggleAttr('lcdImage', Boolean(lcdBg));
     bgLayer.style.backgroundImage = look.bg === 'image' && images.bg ? `url("${images.bg}")` : 'none';
     bgLayer.style.display = look.bg === 'image' ? '' : 'none';
     save();
+  }
+
+  // Фон экрана: готовый или своя картинка
+  function lcdBackground() {
+    if (look.lcdBg === 'image') return images.lcd ? `url("${images.lcd}") center / cover` : null;
+    return LCD_BACKGROUNDS[look.lcdBg]?.css || null;
   }
 
   function toggleAttr(name, on) {
@@ -357,7 +327,7 @@
 
   function applyTheme(id) {
     const keepHaptics = look.haptics;
-    look = { ...DEFAULTS, ...THEMES[id].set, haptics: keepHaptics, lcdImage: false, bgImage: false };
+    look = { ...DEFAULTS, ...THEMES[id].set, haptics: keepHaptics };
     apply();
     render();
   }
@@ -375,8 +345,7 @@
   /* ───────── Редактор ───────── */
 
   const TABS = [
-    ['themes', 'Темы'], ['body', 'Корпус'], ['keys', 'Кнопки'], ['screen', 'Экран'],
-    ['bg', 'Фон'], ['neon', 'Неон'], ['fonts', 'Шрифты'],
+    ['themes', 'Темы'], ['body', 'Корпус'], ['keys', 'Кнопки'], ['screen', 'Экран'], ['bg', 'Фон'], ['fonts', 'Шрифты'],
   ];
   let tab = 'themes';
   let panel = null;
@@ -459,11 +428,12 @@
     return row;
   }
 
-  function fonts(title, key) {
+  function fonts(title, key, ids) {
     const frag = document.createDocumentFragment();
     frag.append(el('h3', null, title));
     const grid = el('div', 'lk__grid');
-    for (const [id, f] of Object.entries(FONTS)) {
+    for (const id of ids) {
+      const f = FONTS[id];
       const b = option(f.name, look[key] === id, () => set({ [key]: id }));
       const sample = el('b', null, f.sample);
       if (f.family) sample.style.fontFamily = f.family;
@@ -492,7 +462,7 @@
       del.addEventListener('click', async () => {
         delete images[name];
         await imageSet(name, null);
-        set(name === 'bg' ? { bg: 'dark' } : { lcdImage: false });
+        set(name === 'bg' ? { bg: 'dark' } : { lcdBg: 'none' });
       });
       row.append(del);
     }
@@ -506,14 +476,13 @@
         f.append(el('h3', null, 'Готовые темы'));
         const grid = el('div', 'lk__grid');
         for (const [id, t] of Object.entries(THEMES)) {
-          grid.append(option(t.name, false, () => applyTheme(id), t.sw, 'lk__opt--theme'));
+          grid.append(option(t.name, false, () => applyTheme(id), `linear-gradient(135deg, ${t.sw[0]} 55%, ${t.sw[1]} 55%)`, 'lk__opt--theme'));
         }
         f.append(grid);
-        f.append(el('p', 'lk__note', 'Тема меняет всё сразу — дальше можно подстроить любую мелочь на других вкладках.'));
+        f.append(el('p', 'lk__note', 'Тема — готовая расцветка. Дальше можно подстроить любую мелочь на других вкладках.'));
         break;
       }
       case 'body':
-        f.append(choices('Форма корпуса', SKINS, 'skin'));
         f.append(choices('Фактура', FINISHES, 'finish'));
         f.append(colors('Цвет корпуса', 'body', COLORS.body));
         f.append(colors('Ручка громкости', 'knob', COLORS.accent));
@@ -522,24 +491,31 @@
         f.append(colors('Светодиод: приём', 'ledRx', COLORS.led));
         break;
       case 'keys':
-        f.append(choices('Форма кнопок', KEY_SHAPES, 'keyShape'));
         f.append(colors('Цвет кнопок', 'keys', COLORS.keys));
         f.append(colors('Цифры и надписи', 'label', COLORS.label));
         f.append(colors('Надписи F-функций', 'accent', COLORS.accent));
         f.append(toggle('Вибрация кнопок', 'haptics'));
         break;
-      case 'screen':
+      case 'screen': {
+        const dark = ['dark', 'oled', 'crt'].includes(look.lcdStyle);
         f.append(choices('Стиль экрана', LCD_STYLES, 'lcdStyle'));
-        f.append(colors(['dark', 'oled', 'crt'].includes(look.lcdStyle) ? 'Цвет свечения' : 'Подсветка', 'lcd', COLORS.lcd));
+        f.append(colors(dark ? 'Цвет цифр' : 'Подсветка', 'lcd', dark ? COLORS.glowLcd : COLORS.lcd));
         if (look.lcdStyle === 'gradient') f.append(colors('Второй цвет градиента', 'lcd2', COLORS.lcd));
-        f.append(choices('Узор', PATTERNS, 'pattern'));
-        f.append(el('h3', null, 'Картинка на экране'));
-        f.append(imageButtons('lcd', { lcdImage: true }, 640));
-        if (images.lcd) {
-          f.append(toggle('Показывать картинку', 'lcdImage'));
-          f.append(slider('Подсветка поверх', 'lcdTint', 15, 90, 5));
+        f.append(el('h3', null, 'Фон экрана'));
+        const grid = el('div', 'lk__grid');
+        for (const [id, b] of Object.entries(LCD_BACKGROUNDS)) {
+          if (id === 'image' && !images.lcd) continue;
+          const sw = id === 'image' ? `url("${images.lcd}") center / cover` : b.css || 'linear-gradient(135deg, #3a3b42, #1a1b1f)';
+          grid.append(option(b.name, look.lcdBg === id, () => set({ lcdBg: id }), sw));
         }
+        f.append(grid);
+        f.append(imageButtons('lcd', { lcdBg: 'image' }, 640));
+        if (look.lcdBg !== 'none') f.append(slider('Подсветка поверх фона', 'lcdTint', 0, 90, 5));
+        f.append(choices('Узор', PATTERNS, 'pattern'));
+        f.append(toggle('Мягкое свечение', 'glow'));
+        if (look.glow) f.append(slider('Сила свечения', 'glowLevel', 0.2, 1, 0.1));
         break;
+      }
       case 'bg': {
         f.append(el('h3', null, 'Фон за рацией'));
         const grid = el('div', 'lk__grid');
@@ -555,17 +531,9 @@
         if (look.bg === 'image') f.append(slider('Затемнение', 'bgDim', 0, 80, 5));
         break;
       }
-      case 'neon':
-        f.append(toggle('Неон', 'neon'));
-        f.append(toggle('Пульсация', 'pulse'));
-        f.append(slider('Яркость свечения', 'glow', 0.3, 2, 0.1));
-        f.append(colors('Цвет неона: корпус и кнопки', 'neonColor', COLORS.neon));
-        f.append(colors('Цвет неона: экран', 'neon2', COLORS.neon));
-        f.append(el('p', 'lk__note', 'Для полного неона выберите форму корпуса «Неон» и тёмный стиль экрана — или тему «Киберпанк».'));
-        break;
       case 'fonts':
-        f.append(fonts('Шрифт экрана', 'fontLcd'));
-        f.append(fonts('Шрифт кнопок', 'fontKeys'));
+        f.append(fonts('Шрифт экрана', 'fontLcd', LCD_FONTS));
+        f.append(fonts('Шрифт кнопок', 'fontKeys', KEY_FONTS));
         break;
       default:
         break;

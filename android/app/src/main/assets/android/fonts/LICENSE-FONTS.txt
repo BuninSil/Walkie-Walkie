@@ -1,8 +1,6 @@
 Шрифты в этой папке распространяются по SIL Open Font License 1.1:
-  Press Start 2P — CodeMan38; PT Mono — ParaType; Jura — The Jura Project Authors;
-  Russo One — Jovanny Lemonad; Comfortaa — Johan Aakerlund; Orbitron — Matt McInerney;
-  VT323 — Peter Hull (пакеты @fontsource);
-  DSEG7 / DSEG14 Classic — Copyright (c) 2017, keshikan, Reserved Font Name "DSEG" (пакет dseg).
+  PT Mono — ParaType; Jura — The Jura Project Authors; Russo One — Jovanny Lemonad (пакеты @fontsource);
+  DSEG7 Classic — Copyright (c) 2017, keshikan, Reserved Font Name "DSEG" (пакет dseg).
 
 Текст лицензии:
 
