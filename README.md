@@ -13,6 +13,8 @@
 | **Android** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Walkie-1.0.N.apk` | Та же рация, кнопка PTT поверх приложений, фоновый приём |
 | **Радиостанция (Android)** | [Релизы](https://github.com/BuninSil/Walkie-Walkie/releases) → `Station-1.0.N.apk` | Своя FM-станция: музыка из папки и голос в эфир на 87.5–108 МГц — [подробно](radio-air/README.md) |
 
+**Авторы:** [BuninSil](https://github.com/BuninSil) и Valex.
+
 ---
 
 ## Содержание
@@ -28,6 +30,7 @@
 - [Устройство проекта](#устройство-проекта)
 - [Сборка](#сборка)
 - [Подпись и обновления Android](#подпись-и-обновления-android)
+- [Авторы](#авторы)
 
 ---
 
@@ -300,3 +303,10 @@ Android подробнее — в [android/README.md](android/README.md).
   релиз `v1.0.N` с APK и удаляет ветку.
 
 Ключ в репозиторий не кладётся. Без него обновить установленную рацию нельзя.
+
+---
+
+## Авторы
+
+- **BuninSil** — [github.com/BuninSil](https://github.com/BuninSil)
+- **Valex**

@@ -65,3 +65,7 @@ CI (workflow «Station APK») собирает APK при каждом изме�
 ключом, что и рация (см. «Подпись и обновления Android» в [README](../README.md)): с секретами — в CI,
 без них — неподписанный APK попадает в ветку `apk-unsigned-station` и подписывается
 `android/tools/sign_v2.py`.
+
+## Авторы
+
+BuninSil и Valex.

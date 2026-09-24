@@ -83,3 +83,7 @@ WALKIE_KEYSTORE_FILE=walkie-release.p12 WALKIE_KEYSTORE_PASSWORD=... ./gradlew a
 | `app/src/main/java/ru/radio/walkie/AirState.java` | Что в эфире (связь, приём, передача, канал) — для уведомления и кнопки |
 | `app/src/main/assets/android/bridge.js` | `window.radioDesktop` вместо `preload.js`, WebSocket через Java, ввод текста, настройки |
 | `app/src/main/assets/android/android.css` | Рация на экране телефона, панель настроек |
+
+## Авторы
+
+BuninSil и Valex.
