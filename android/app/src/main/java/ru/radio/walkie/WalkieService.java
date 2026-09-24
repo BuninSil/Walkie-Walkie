@@ -30,11 +30,13 @@ public class WalkieService extends Service implements AirState.Listener {
 
     static final String PREFS = "walkie";
     static final String PREF_BUBBLE = "bubble";
+    static final String PREF_LOCK = "lock_screen"; // рация и кнопка PTT на экране блокировки
 
     private static final String CHANNEL = "walkie-status";
     private static final int NOTIFICATION_ID = 1;
     private static final String ACTION_QUIT = "ru.radio.walkie.QUIT";
     private static final String ACTION_BUBBLE = "ru.radio.walkie.BUBBLE";
+    private static final String ACTION_TALK = "ru.radio.walkie.TALK";
 
     private static volatile boolean appVisible = true;
     private static WalkieService instance; // только с главного потока
@@ -71,6 +73,31 @@ public class WalkieService extends Service implements AirState.Listener {
         if (instance != null) instance.refresh();
     }
 
+    static boolean lockScreenEnabled(Context context) {
+        return context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_LOCK, true);
+    }
+
+    // Экран включился на заблокированном телефоне — кнопка PTT поверх блокировки; разблокировали — убираем
+    private final android.content.BroadcastReceiver screenWatch = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String a = intent.getAction();
+            if (Intent.ACTION_SCREEN_ON.equals(a)) {
+                android.app.KeyguardManager km = (android.app.KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+                if (km.isKeyguardLocked() && bubbleEnabled(context) && lockScreenEnabled(context) && Settings.canDrawOverlays(context)) {
+                    try {
+                        startActivity(new Intent(context, LockPttActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+                    } catch (RuntimeException ignored) {
+                        // Android не дал открыть окно — остаётся кнопка «Говорить» в уведомлении
+                    }
+                }
+            } else {
+                LockPttActivity.close(); // разблокировали или погасили экран
+            }
+        }
+    };
+
     static boolean bubbleEnabled(Context context) {
         return context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_BUBBLE, false);
     }
@@ -98,6 +125,11 @@ public class WalkieService extends Service implements AirState.Listener {
         AirState.addListener(this);
         instance = this;
         updateTimer.run();
+        android.content.IntentFilter screen = new android.content.IntentFilter();
+        screen.addAction(Intent.ACTION_SCREEN_ON);
+        screen.addAction(Intent.ACTION_SCREEN_OFF);
+        screen.addAction(Intent.ACTION_USER_PRESENT);
+        ContextCompat.registerReceiver(this, screenWatch, screen, ContextCompat.RECEIVER_NOT_EXPORTED); // системные — доходят
     }
 
     @Override
@@ -106,6 +138,10 @@ public class WalkieService extends Service implements AirState.Listener {
         if (ACTION_QUIT.equals(action)) {
             MainActivity.quitFromOutside();
             stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_TALK.equals(action)) {
+            MainActivity.hotkey("ptt-toggle"); // «Говорить» / «Стоп» из уведомления, в том числе на экране блокировки
             return START_NOT_STICKY;
         }
         if (ACTION_BUBBLE.equals(action)) {
@@ -194,6 +230,8 @@ public class WalkieService extends Service implements AirState.Listener {
         PendingIntent tap = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent quit = PendingIntent.getService(this, 1,
             new Intent(this, WalkieService.class).setAction(ACTION_QUIT), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent talk = PendingIntent.getService(this, 3,
+            new Intent(this, WalkieService.class).setAction(ACTION_TALK), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent bubbleToggle = PendingIntent.getService(this, 2,
             new Intent(this, WalkieService.class).setAction(ACTION_BUBBLE), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -209,7 +247,9 @@ public class WalkieService extends Service implements AirState.Listener {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .addAction(0, bubbleEnabled(this) ? "Убрать кнопку PTT" : "Кнопка PTT поверх", bubbleToggle)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // видно и на экране блокировки
+            .addAction(0, AirState.transmitting() ? "■ Стоп" : "🎙 Говорить", talk)
+            .addAction(0, bubbleEnabled(this) ? "Убрать PTT" : "PTT поверх", bubbleToggle)
             .addAction(0, "Выключить", quit)
             .build();
     }
@@ -224,6 +264,12 @@ public class WalkieService extends Service implements AirState.Listener {
         AirState.removeListener(this);
         if (instance == this) instance = null;
         timers.removeCallbacks(updateTimer);
+        try {
+            unregisterReceiver(screenWatch);
+        } catch (RuntimeException ignored) {
+            // уже снят
+        }
+        LockPttActivity.close();
         bubble.hide();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();

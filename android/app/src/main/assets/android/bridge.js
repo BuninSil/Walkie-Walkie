@@ -130,10 +130,13 @@
     const rig = document.getElementById('rig');
     if (!rig) return;
     rig.style.zoom = '1';
-    const zoom = Math.min(window.innerWidth / (rig.offsetWidth + 16), window.innerHeight / rig.offsetHeight);
+    // Высокая антенна поднимает рацию (margin-top) — её тоже вписываем в экран
+    const top = parseFloat(getComputedStyle(rig).marginTop) || 0;
+    const zoom = Math.min(window.innerWidth / (rig.offsetWidth + 16), window.innerHeight / (rig.offsetHeight + top));
     rig.style.zoom = String(Math.max(0.5, zoom));
   }
   window.addEventListener('resize', fit); // и под открытую клавиатуру: экран рации остаётся виден
+  window.__walkieFit = fit; // внешний вид поменял высоту (антенна) — вписать заново
 
   // Фонарик рации (боковая кнопка ☼) включает и настоящий фонарик телефона
   function setupTorch() {
@@ -579,6 +582,8 @@
     sec.append(el('h3', null, 'Телефон'));
     sec.append(toggle('Кнопка PTT поверх приложений', 'Держите — говорите, тап — открыть рацию', native.bubble,
       (on) => shell?.setOption?.('bubble', on)));
+    sec.append(toggle('На экране блокировки', 'Кнопка PTT и рация без разблокировки', native.lockScreen !== false,
+      (on) => shell?.setOption?.('lockScreen', on)));
     sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,
       (on) => shell?.setOption?.('keepScreen', on)));
     sheet.append(sec);

@@ -39,6 +39,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Кнопка PTT поверх экрана блокировки (окно размером с кнопку) -->
+        <activity
+            android:name=".LockPttActivity"
+            android:theme="@style/Walkie.Lock"
+            android:showWhenLocked="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="ru.radio.walkie.lock"
+            android:noHistory="true"
+            android:exported="false" />
+
         <!-- Держит рацию на приёме, пока приложение свёрнуто или экран выключен -->
         <service
             android:name=".WalkieService"

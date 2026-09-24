@@ -54,13 +54,78 @@ html[data-finish="carbon"] .body {
     linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
 }
 
+/* Пустынный камуфляж — как у настоящих Quansheng в камуфляже */
+html[data-finish="desert"] .body {
+  background:
+    radial-gradient(9px 6px at 30% 20%, #6f5537 60%, transparent 63%) 0 0 / 46px 38px,
+    radial-gradient(12px 7px at 70% 60%, #8f7350 60%, transparent 63%) 0 0 / 54px 44px,
+    radial-gradient(7px 10px at 50% 50%, #e2d2b0 60%, transparent 63%) 0 0 / 40px 50px,
+    radial-gradient(14px 8px at 20% 80%, #a88a5f 60%, transparent 63%) 0 0 / 62px 52px,
+    radial-gradient(6px 5px at 80% 30%, #5b4430 60%, transparent 63%) 0 0 / 34px 30px,
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
 html[data-finish="rubber"] .body {
   background:
     radial-gradient(circle, rgba(255, 255, 255, 0.05) 0.8px, transparent 1.2px) 0 0 / 4px 4px,
     linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
 }
 
+/* ───────── Антенны ───────── */
+
 html[data-antenna="off"] .antenna { visibility: hidden; }
+
+/* Родная — в цвет антенны */
+html[data-antenna="stock"] .antenna {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 16px, rgba(255, 255, 255, 0.04) 16px 18px),
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-lo)) !important;
+}
+
+/* Длинная гибкая (как NA-771): тонкий хлыст с колпачком, утолщение у основания.
+   Рация опускается ниже (margin-top), чтобы антенна поместилась над ней */
+html[data-antenna="long"] .rig, html[data-antenna="tele"] .rig { margin-top: 118px; }
+html[data-antenna="long"] .antenna, html[data-antenna="tele"] .antenna {
+  top: -118px;
+  height: 222px;
+  border-radius: 0;
+  box-shadow: none !important;
+}
+html[data-antenna="long"] .antenna {
+  background:
+    radial-gradient(ellipse at 50% 8px, var(--wk-ant-hi) 0 2px, var(--wk-ant) 3px 7px, transparent 7.5px) center top / 22px 18px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 50%, var(--wk-ant-lo)) center 12px / 10px calc(100% - 96px) no-repeat,
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(255, 255, 255, 0.06) 5px 6px) center calc(100% - 18px) / 16px 68px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 50%, var(--wk-ant-lo)) center calc(100% - 18px) / 16px 68px no-repeat !important;
+}
+html[data-antenna="long"] .antenna::after {
+  background: linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant-hi) 50%, var(--wk-ant-lo)) !important;
+}
+
+/* Телескопическая: хромированные колена, шарик на конце */
+html[data-antenna="tele"] .antenna {
+  background:
+    radial-gradient(circle at 50% 6px, #ffffff 0 1.5px, #c9ccd1 2.5px 5px, transparent 5.5px) center top / 22px 14px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 10px / 4px 60px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 68px / 6px 50px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 116px / 8px 50px no-repeat,
+    linear-gradient(90deg, #4a4d53, #e6e8eb 40%, #8a8d93 60%, #3d4046) center calc(100% - 16px) / 11px 58px no-repeat !important;
+}
+html[data-antenna="tele"] .antenna::after {
+  background: linear-gradient(90deg, #2a2b30, #6a6d73 50%, #2a2b30) !important;
+}
+
+/* Короткая «пенёк»: толстая, резиновая */
+html[data-antenna="stubby"] .antenna {
+  top: 36px;
+  left: 50px;
+  width: 26px;
+  height: 68px;
+  border-radius: 13px 13px 5px 5px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 7px, rgba(255, 255, 255, 0.05) 7px 8px),
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-lo)) !important;
+}
 
 /* ───────── Экран ───────── */
 

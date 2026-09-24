@@ -87,6 +87,7 @@ public class MainActivity extends ComponentActivity {
         updater.canInstallNow = () -> !AirState.transmitting(); // посреди передачи не обновляемся
         updater.addListener(updateWatch);
         applyKeepScreen();
+        setShowWhenLocked(WalkieService.lockScreenEnabled(this)); // открыть рацию можно поверх блокировки
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xff0d0e10);
@@ -328,6 +329,7 @@ public class MainActivity extends ComponentActivity {
         try {
             o.put("bubble", WalkieService.bubbleEnabled(this) && Settings.canDrawOverlays(this));
             o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
+            o.put("lockScreen", WalkieService.lockScreenEnabled(this));
             o.put("version", BuildConfig.VERSION_NAME);
             o.put("update", updater.toJson());
         } catch (Exception ignored) {
@@ -513,6 +515,9 @@ public class MainActivity extends ComponentActivity {
                 if ("bubble".equals(name)) {
                     if (on && !Settings.canDrawOverlays(MainActivity.this)) openOverlaySettings(MainActivity.this);
                     else WalkieService.setBubbleEnabled(MainActivity.this, on);
+                } else if ("lockScreen".equals(name)) {
+                    prefs.edit().putBoolean(WalkieService.PREF_LOCK, on).apply();
+                    setShowWhenLocked(on);
                 } else if ("keepScreen".equals(name)) {
                     prefs.edit().putBoolean(PREF_KEEP_SCREEN, on).apply();
                     applyKeepScreen();

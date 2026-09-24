@@ -15,7 +15,7 @@
 
   const DEFAULTS = {
     finish: 'matte', body: '#26272b', keys: '#2e2f35',
-    label: '#ecebe6', accent: '#ff9a3c', antenna: true, knob: '#ff9a3c',
+    label: '#ecebe6', accent: '#ff9a3c', antenna: 'stock', antennaColor: '#2b2c31', knob: '#ff9a3c',
     lcdStyle: 'classic', lcd: '#c6d6b2', lcd2: '#8ad4ff', ink: 'auto', pattern: 'none', lcdBg: 'none', lcdTint: 55,
     bg: 'dark', bgColor: '#101114', bgImage: false, bgDim: 35,
     glow: false, glowLevel: 0.6,
@@ -24,7 +24,8 @@
     haptics: true,
   };
 
-  const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина' };
+  const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина', desert: 'Камуфляж' };
+  const ANTENNAS = { stock: 'Родная', long: 'Длинная', tele: 'Телескоп', stubby: 'Короткая', off: 'Без антенны' };
   const LCD_STYLES = {
     classic: 'Классика', dark: 'Тёмный', oled: 'OLED', crt: 'ЭЛТ', glass: 'Стекло', gradient: 'Градиент',
   };
@@ -56,6 +57,7 @@
     glowLcd: ['#7dffb0', '#ffb000', '#5fd7ff', '#ecebe6', '#ff6f61', '#39ff14', '#ff2bd6', '#00e5ff', '#b86bff'],
     bg: ['#101114', '#000000', '#141a24', '#121a14', '#1c1214', '#1a1a1a'],
     led: ['#ff3b2f', '#37f06f', '#5fd7ff', '#ffb000', '#ffffff'],
+    antenna: ['#2b2c31', '#121214', '#4b5234', '#8a7552', '#25324d', '#6e1f23'],
   };
 
   const BACKGROUNDS = {
@@ -88,6 +90,7 @@
     navy: { name: 'Синяя ночь', sw: ['#25324d', '#b8e3f5'], set: { body: '#25324d', keys: '#2c3850', lcd: '#b8e3f5', accent: '#4cd2ff', knob: '#4cd2ff', bg: 'night' } },
     sand: { name: 'Песок', sw: ['#a38b5e', '#ffcf7a'], set: { body: '#a38b5e', keys: '#4a4234', lcd: '#ffcf7a', accent: '#ff9a3c' } },
     white: { name: 'Белая', sw: ['#c9cbcf', '#b8e3f5'], set: { body: '#c9cbcf', keys: '#3a3b40', finish: 'gloss', lcd: '#b8e3f5', accent: '#1d9bf0', knob: '#1d9bf0', bg: 'graphite' } },
+    desert: { name: 'Пустыня', sw: ['#c2a67a', '#c6d6b2'], set: { body: '#c2a67a', finish: 'desert', keys: '#2e2a24', label: '#f1e8d6', accent: '#ffb000', knob: '#ffb000', antenna: 'long', antennaColor: '#121214', bg: 'graphite' } },
     red: { name: 'Красная', sw: ['#6e1f23', '#eef0ea'], set: { body: '#6e1f23', keys: '#2e2f35', lcd: '#eef0ea', accent: '#ffd23c', bg: 'wine' } },
     carbon: { name: 'Карбон', sw: ['#141417', '#eef0ea'], set: { body: '#141417', keys: '#1a1b1f', finish: 'carbon', lcd: '#eef0ea', accent: '#ecebe6', knob: '#ecebe6', bg: 'carbon' } },
     nightGreen: { name: 'Ночной', sw: ['#141417', '#7dffb0'], set: { body: '#1c1d21', keys: '#1a1b1f', lcdStyle: 'dark', lcd: '#7dffb0', glow: true, accent: '#6ee06e', knob: '#6ee06e' } },
@@ -129,6 +132,9 @@
     if (!LCD_FONTS.includes(l.fontLcd)) l.fontLcd = 'default';
     if (!KEY_FONTS.includes(l.fontKeys)) l.fontKeys = 'default';
     if (typeof l.glow !== 'boolean') l.glow = Boolean(saved.neon);
+    if (l.antenna === true) l.antenna = 'stock';
+    if (l.antenna === false) l.antenna = 'off';
+    if (!ANTENNAS[l.antenna]) l.antenna = 'stock';
     for (const k of ['skin', 'keyShape', 'lcdImage', 'neon', 'neonColor', 'neon2', 'pulse']) delete l[k];
     return l;
   }
@@ -260,6 +266,9 @@
     v['--key-side-lo'] = shade(look.keys, -0.12);
     v['--label'] = look.label;
     v['--label-alt'] = look.accent;
+    v['--wk-ant'] = look.antennaColor;
+    v['--wk-ant-lo'] = shade(look.antennaColor, -0.65);
+    v['--wk-ant-hi'] = shade(look.antennaColor, 0.25);
     v['--led-tx'] = look.ledTx;
     v['--led-rx'] = look.ledRx;
 
@@ -317,9 +326,10 @@
     d.finish = look.finish;
     d.lcd = look.lcdStyle;
     d.pattern = look.pattern;
-    d.antenna = look.antenna ? 'on' : 'off';
+    d.antenna = look.antenna;
     toggleAttr('glow', look.glow);
     toggleAttr('lcdImage', Boolean(lcdBg));
+    if (document.body) window.__walkieFit?.();
     save();
   }
 
@@ -504,7 +514,8 @@
         f.append(choices('Фактура', FINISHES, 'finish'));
         f.append(colors('Цвет корпуса', 'body', COLORS.body));
         f.append(colors('Ручка громкости', 'knob', COLORS.accent));
-        f.append(toggle('Антенна', 'antenna'));
+        f.append(choices('Антенна', ANTENNAS, 'antenna'));
+        if (look.antenna !== 'off' && look.antenna !== 'tele') f.append(colors('Цвет антенны', 'antennaColor', COLORS.antenna));
         f.append(colors('Светодиод: передача', 'ledTx', COLORS.led));
         f.append(colors('Светодиод: приём', 'ledRx', COLORS.led));
         break;
