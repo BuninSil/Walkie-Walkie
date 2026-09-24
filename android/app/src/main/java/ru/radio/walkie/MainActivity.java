@@ -2,13 +2,22 @@ package ru.radio.walkie;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
-import android.view.inputmethod.InputMethodManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.provider.Settings;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
@@ -30,6 +39,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 
 /*
  * Рация для Android — рация с ПК как есть. В WebView открывается та же страница widget.html
@@ -44,15 +54,24 @@ public class MainActivity extends ComponentActivity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String PAGE = "https://" + HOST + "/assets/web/widget.html";
     private static final int MIC_REQUEST = 1;
+    private static final String PREF_KEEP_SCREEN = "keep_screen";
+
+    private static MainActivity instance; // только с главного потока
 
     private WebView web;
     private AirSocket air;
     private PermissionRequest pendingMic;
+    private boolean wantBubble;        // включили кнопку поверх — ждём разрешения в настройках Android
+    private AlertDialog textDialog;
+    private SharedPreferences prefs;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        instance = this;
+        prefs = getSharedPreferences(WalkieService.PREFS, MODE_PRIVATE);
+        applyKeepScreen();
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xff0d0e10);
@@ -172,10 +191,144 @@ public class MainActivity extends ComponentActivity {
         super.onResume();
         // Пока приложение на экране, Android разрешает запустить фоновый сервис (с микрофоном — если разрешён)
         WalkieService.start(this);
+        // Вернулись из настроек «поверх других приложений»
+        if (wantBubble) {
+            wantBubble = false;
+            if (Settings.canDrawOverlays(this)) WalkieService.setBubbleEnabled(this, true);
+            optionsChanged();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        WalkieService.appVisible(true);
+    }
+
+    @Override
+    protected void onStop() {
+        WalkieService.appVisible(false);
+        super.onStop();
+    }
+
+    /* ───────── Снаружи: кнопка поверх приложений и уведомление ───────── */
+
+    // Как горячая клавиша на ПК: ptt-down / ptt-up приходят в рацию через radioDesktop.onHotkey
+    static void hotkey(String action) {
+        MainActivity a = instance;
+        if (a != null) a.js("window.__walkieHotkey&&window.__walkieHotkey(" + JSONObject.quote(action) + ")");
+    }
+
+    static void quitFromOutside() {
+        MainActivity a = instance;
+        if (a != null) a.finishAndRemoveTask();
+    }
+
+    static void openOverlaySettings(Context context) {
+        MainActivity a = instance;
+        if (a != null) a.wantBubble = true;
+        Intent i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.getPackageName()))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(i);
+    }
+
+    // Настройки поменяли не со страницы (из уведомления) — пусть панель настроек покажет новое
+    static void optionsChanged() {
+        MainActivity a = instance;
+        if (a != null) a.js("window.__walkieOptions&&window.__walkieOptions(" + a.options() + ")");
+    }
+
+    private void js(String code) {
+        web.post(() -> web.evaluateJavascript(code, null));
+    }
+
+    private String options() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("bubble", WalkieService.bubbleEnabled(this) && Settings.canDrawOverlays(this));
+            o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
+            o.put("version", BuildConfig.VERSION_NAME);
+        } catch (Exception ignored) {
+            // JSONObject.put не бросает для этих значений
+        }
+        return o.toString();
+    }
+
+    private void applyKeepScreen() {
+        if (prefs.getBoolean(PREF_KEEP_SCREEN, false)) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    /* ───────── Ввод текста: позывной, адрес сервера, ключ SCR ───────── */
+
+    private void textDialog(String code, String initial) {
+        if (textDialog != null) return;
+        EditText edit = new EditText(this);
+        edit.setSingleLine(true);
+        edit.setText(initial);
+        edit.setSelectAllOnFocus(true);
+        edit.setFilters(new InputFilter[] { new InputFilter.LengthFilter("NAME".equals(code) ? 24 : 64) });
+        edit.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        String title;
+        switch (code) {
+            case "NAME":
+                title = "Позывной";
+                edit.setHint("Как вас слышат в эфире");
+                edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                break;
+            case "SERVER":
+                title = "Адрес сервера";
+                edit.setHint("192.168.1.10:8765 или radio.example.ru");
+                edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+                break;
+            case "SCR":
+                title = "Ключ шифрования";
+                edit.setHint("Фраза из нескольких слов");
+                edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                break;
+            default:
+                title = "Ввод";
+                edit.setInputType(InputType.TYPE_CLASS_TEXT);
+        }
+        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(edit);
+
+        AlertDialog dialog = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(title)
+            .setView(box)
+            .setPositiveButton("Готово", (d, w) -> textDone(true, edit.getText().toString()))
+            .setNegativeButton("Отмена", (d, w) -> textDone(false, null))
+            .setOnCancelListener((d) -> textDone(false, null))
+            .create();
+        edit.setOnEditorActionListener((v, actionId, event) -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+            return true;
+        });
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        textDialog = dialog;
+        dialog.show();
+        edit.requestFocus();
+    }
+
+    private void textDone(boolean ok, String text) {
+        if (textDialog == null) return;
+        textDialog = null;
+        JSONObject r = new JSONObject();
+        try {
+            r.put("ok", ok);
+            r.put("text", text == null ? "" : text);
+        } catch (Exception ignored) {
+            // не бросает
+        }
+        js("window.__walkieText&&window.__walkieText(" + r + ")");
     }
 
     @Override
     protected void onDestroy() {
+        if (instance == this) instance = null;
+        if (textDialog != null) textDialog.dismiss();
         air.closeAll();
         if (isFinishing()) WalkieService.stop(this);
         web.destroy();
@@ -197,12 +350,34 @@ public class MainActivity extends ComponentActivity {
             });
         }
 
+        // Рация начала ввод текста — показываем окно Android с полем ввода
         @JavascriptInterface
-        public void showKeyboard() {
+        public void editText(String code, String initial) {
+            runOnUiThread(() -> textDialog(code, initial));
+        }
+
+        @JavascriptInterface
+        public void vibrate() {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) v.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+
+        @JavascriptInterface
+        public String options() {
+            return MainActivity.this.options();
+        }
+
+        @JavascriptInterface
+        public void setOption(String name, boolean on) {
             runOnUiThread(() -> {
-                web.requestFocus(View.FOCUS_DOWN);
-                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT);
+                if ("bubble".equals(name)) {
+                    if (on && !Settings.canDrawOverlays(MainActivity.this)) openOverlaySettings(MainActivity.this);
+                    else WalkieService.setBubbleEnabled(MainActivity.this, on);
+                } else if ("keepScreen".equals(name)) {
+                    prefs.edit().putBoolean(PREF_KEEP_SCREEN, on).apply();
+                    applyKeepScreen();
+                }
+                optionsChanged();
             });
         }
     }

@@ -7,7 +7,8 @@
  *    работает как ПК-приложение: пункты меню SERVER, AUTO, HOST, TOP и подключение при запуске.
  *    Чего у телефона нет (свой сервер, горячие клавиши, полоска поверх игр), отвечает «нет».
  * 2. WebSocket — через Java (AirSocket): сервер эфира видит телефон как ПК-рацию.
- * 3. Экран: рация на весь экран телефона, экранная клавиатура для ввода текста.
+ * 3. Экран: рация на весь экран телефона, ввод текста — окном Android.
+ * 4. Кнопка PTT поверх приложений (нажатия приходят как горячая клавиша ПК), вибрация, внешний вид.
  */
 
 (() => {
@@ -24,6 +25,9 @@
     bindings: Object.fromEntries(ACTIONS.map((a) => [a, { combo: null, label: '' }])),
   });
   const bar = { opacity: 0.92, clickThrough: false };
+  let hotkeyHandler = null;
+  // Кнопка PTT поверх приложений нажимает рацию так же, как горячая клавиша на ПК
+  window.__walkieHotkey = (action) => hotkeyHandler?.(action);
 
   window.radioDesktop = {
     hostStart: async () => ({ ok: false, error: 'на телефоне нет своего сервера' }),
@@ -36,7 +40,7 @@
     setPttMode: async () => hotkeyState(),
     captureHotkey: async () => ({ cancelled: true }),
     cancelCapture: async () => undefined,
-    onHotkey: () => {},
+    onHotkey: (callback) => { hotkeyHandler = callback; },
 
     windowState: async () => ({ walkieOnly: true, mode: 'widget', view: 'widget', onTop: false, bar: { ...bar } }),
     switchMode: async () => false,
@@ -133,18 +137,209 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     fit();
+    setupTextEntry();
+    setupLook();
     // На ПК страница открыта с app:// и «своего» сервера у неё нет; здесь адрес страницы https://,
     // и link.js принял бы его за сервер. Сервер не выбран — пусть рация так и показывает
     const link = window.radioWidget?.link;
     if (link && !link.ws) link.url = null;
-    // Ввод текста (позывной, адрес, ключ): рация фокусирует скрытое поле — открываем клавиатуру
-    const input = document.getElementById('text-entry');
-    input?.addEventListener('focus', () => shell?.showKeyboard());
-    // Закрыли клавиатуру посреди ввода — тап по экрану рации открывает её снова
-    document.getElementById('lcd')?.addEventListener('pointerdown', () => {
-      if (document.activeElement === input) shell?.showKeyboard();
-    });
   });
+
+  /* ───────── Ввод текста: окно Android вместо клавиатуры компьютера ─────────
+   * Рация начинает ввод, фокусируя скрытое поле (как на ПК). Мы показываем окно Android с полем
+   * ввода, а ответ отдаём рации так же, как клавиатура ПК: текст в поле и Enter (или Esc — отмена). */
+  function setupTextEntry() {
+    const input = document.getElementById('text-entry');
+    if (!input || !shell?.editText) return;
+    input.inputMode = 'none'; // своя клавиатура у окна ввода; у скрытого поля — не нужна
+    let open = false;
+    input.addEventListener('focus', () => {
+      if (open) return;
+      open = true;
+      // Что вводим, рация пишет на экране (NAME, SERVER, SCR) — уже после фокуса
+      setTimeout(() => shell.editText(document.getElementById('menu-code')?.textContent || '', input.value), 0);
+    });
+    window.__walkieText = ({ ok, text }) => {
+      open = false;
+      if (ok) input.value = text;
+      const key = ok ? 'Enter' : 'Escape';
+      input.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, bubbles: true, cancelable: true }));
+    };
+  }
+
+  /* ───────── Внешний вид и настройки телефона ───────── */
+
+  const LOOK_KEY = 'walkie.android.look';
+  const BODIES = {
+    graphite: { name: 'Графит', sw: '#26272b' },
+    olive: { name: 'Олива', sw: '#4b5234', v: { '--plastic-hi': '#4b5234', '--plastic-lo': '#2a2f1c', '--key-hi': '#3b4129', '--key-lo': '#23271a', '--key-side-hi': '#525a3a', '--key-side-lo': '#353b26' } },
+    navy: { name: 'Ночь', sw: '#25324d', v: { '--plastic-hi': '#25324d', '--plastic-lo': '#111a2c', '--key-hi': '#2c3850', '--key-lo': '#172033', '--key-side-hi': '#36435e', '--key-side-lo': '#222d44' } },
+    orange: { name: 'Оранж', sw: '#d86b1c', v: { '--plastic-hi': '#d86b1c', '--plastic-lo': '#9c470b', '--key-side-hi': '#e07a2a', '--key-side-lo': '#a8520f' } },
+    red: { name: 'Красный', sw: '#7d2226', v: { '--plastic-hi': '#7d2226', '--plastic-lo': '#3e0f12', '--key-side-hi': '#8a2c30', '--key-side-lo': '#57181b' } },
+    sand: { name: 'Песок', sw: '#a38b5e', v: { '--plastic-hi': '#a38b5e', '--plastic-lo': '#6e5a36', '--key-hi': '#4a4234', '--key-lo': '#2e281e', '--key-side-hi': '#b09a6c', '--key-side-lo': '#7a6540' } },
+  };
+  const SCREENS = {
+    green: { name: 'Зелёная', sw: '#c6d6b2' },
+    amber: { name: 'Янтарь', sw: '#ffcf7a', v: { '--lcd-lit': '#ffcf7a', '--lcd-lit-lo': '#e0a948' } },
+    ice: { name: 'Лёд', sw: '#b8e3f5', v: { '--lcd-lit': '#b8e3f5', '--lcd-lit-lo': '#8cc6e0' } },
+    white: { name: 'Белая', sw: '#eef0ea', v: { '--lcd-lit': '#eef0ea', '--lcd-lit-lo': '#d3d7cf' } },
+    red: { name: 'Красная', sw: '#ffb0a6', v: { '--lcd-lit': '#ffb0a6', '--lcd-lit-lo': '#e68a7e' } },
+  };
+  const ACCENTS = {
+    orange: { name: 'Оранж', sw: '#ff9a3c' },
+    yellow: { name: 'Жёлтые', sw: '#ffd23c', v: { '--label-alt': '#ffd23c' } },
+    cyan: { name: 'Голубые', sw: '#4cd2ff', v: { '--label-alt': '#4cd2ff' } },
+    green: { name: 'Зелёные', sw: '#6ee06e', v: { '--label-alt': '#6ee06e' } },
+    red: { name: 'Красные', sw: '#ff5a4c', v: { '--label-alt': '#ff5a4c' } },
+  };
+  const GROUPS = [['body', 'Корпус', BODIES], ['screen', 'Подсветка экрана', SCREENS], ['accent', 'Надписи F-функций', ACCENTS]];
+
+  function loadLook() {
+    let look = {};
+    try {
+      look = JSON.parse(localStorage.getItem(LOOK_KEY)) || {};
+    } catch {
+      /* по умолчанию */
+    }
+    return {
+      body: BODIES[look.body] ? look.body : 'graphite',
+      screen: SCREENS[look.screen] ? look.screen : 'green',
+      accent: ACCENTS[look.accent] ? look.accent : 'orange',
+      haptics: look.haptics !== false,
+    };
+  }
+
+  let look = loadLook();
+  const lookStyle = document.createElement('style');
+
+  function applyLook() {
+    const vars = { ...BODIES[look.body].v, ...SCREENS[look.screen].v, ...ACCENTS[look.accent].v };
+    const rules = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
+    lookStyle.textContent = rules ? `:root { ${rules} }` : '';
+    try {
+      localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+    } catch {
+      /* не запомним — не страшно */
+    }
+  }
+
+  // Настройки, которые живут в Android (кнопка поверх, экран), — через WalkieShell
+  let native = {};
+  const readNative = () => {
+    try {
+      native = JSON.parse(shell?.options?.() || '{}');
+    } catch {
+      native = {};
+    }
+  };
+  window.__walkieOptions = (o) => {
+    native = o;
+    renderPanel();
+  };
+
+  let panel = null;
+
+  function setupLook() {
+    document.head.append(lookStyle);
+    applyLook();
+    readNative();
+
+    // Шестерёнка — рядом со «свернуть» и «закрыть», как кнопки окна на ПК
+    const chrome = document.getElementById('chrome');
+    const gear = document.createElement('button');
+    gear.className = 'chrome__btn';
+    gear.id = 'win-settings';
+    gear.type = 'button';
+    gear.title = 'Настройки';
+    gear.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.8 1h2.4l.4 1.9 1.2.5 1.6-1.1 1.7 1.7-1.1 1.6.5 1.2 1.9.4v2.4l-1.9.4-.5 1.2 1.1 1.6-1.7 1.7-1.6-1.1-1.2.5-.4 1.9H6.8l-.4-1.9-1.2-.5-1.6 1.1-1.7-1.7 1.1-1.6-.5-1.2L.6 9.2V6.8l1.9-.4.5-1.2-1.1-1.6 1.7-1.7 1.6 1.1 1.2-.5zM8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8"/></svg>';
+    gear.addEventListener('click', () => openPanel(true));
+    chrome?.prepend(gear);
+
+    // Вибрация — как щелчок настоящей кнопки
+    const buzz = () => look.haptics && shell?.vibrate?.();
+    for (const el of document.querySelectorAll('.key, #ptt, .side__key, #knob')) el.addEventListener('pointerdown', buzz);
+
+    panel = document.createElement('div');
+    panel.className = 'wk-panel';
+    panel.hidden = true;
+    panel.addEventListener('click', (e) => {
+      if (e.target === panel) openPanel(false);
+    });
+    document.body.append(panel);
+  }
+
+  function openPanel(open) {
+    if (open) readNative();
+    panel.hidden = !open;
+    if (open) renderPanel();
+  }
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function toggle(label, note, on, change) {
+    const row = el('label', 'wk-row');
+    const text = el('span', 'wk-row__text', label);
+    if (note) text.append(el('small', null, note));
+    const sw = el('button', 'wk-switch');
+    sw.type = 'button';
+    sw.setAttribute('aria-pressed', String(Boolean(on)));
+    sw.append(el('span'));
+    sw.addEventListener('click', () => change(!on));
+    row.append(text, sw);
+    return row;
+  }
+
+  function renderPanel() {
+    if (!panel || panel.hidden) return;
+    const sheet = el('div', 'wk-sheet');
+    sheet.append(el('h2', null, 'Настройки рации'));
+
+    for (const [key, title, options] of GROUPS) {
+      const sec = el('section', 'wk-sec');
+      sec.append(el('h3', null, title));
+      const row = el('div', 'wk-swatches');
+      for (const [id, o] of Object.entries(options)) {
+        const b = el('button', 'wk-swatch');
+        b.type = 'button';
+        b.style.setProperty('--sw', o.sw);
+        b.setAttribute('aria-pressed', String(look[key] === id));
+        b.append(el('i'), el('span', null, o.name));
+        b.addEventListener('click', () => {
+          look = { ...look, [key]: id };
+          applyLook();
+          renderPanel();
+        });
+        row.append(b);
+      }
+      sec.append(row);
+      sheet.append(sec);
+    }
+
+    const sec = el('section', 'wk-sec');
+    sec.append(el('h3', null, 'Телефон'));
+    sec.append(toggle('Кнопка PTT поверх приложений', 'Держите — говорите, тап — открыть рацию', native.bubble,
+      (on) => shell?.setOption?.('bubble', on)));
+    sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,
+      (on) => shell?.setOption?.('keepScreen', on)));
+    sec.append(toggle('Вибрация кнопок', null, look.haptics, (on) => {
+      look = { ...look, haptics: on };
+      applyLook();
+      renderPanel();
+    }));
+    sheet.append(sec);
+
+    const done = el('button', 'wk-done', 'Готово');
+    done.type = 'button';
+    done.addEventListener('click', () => openPanel(false));
+    sheet.append(done);
+    if (native.version) sheet.append(el('p', 'wk-ver', `Рация для Android ${native.version}`));
+    panel.replaceChildren(sheet);
+  }
 
   // Долгое нажатие не должно открывать меню «копировать / выделить»
   document.addEventListener('contextmenu', (e) => e.preventDefault());

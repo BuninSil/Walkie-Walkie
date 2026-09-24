@@ -20,7 +20,7 @@ body {
   flex: none;
 }
 
-/* Над рацией на телефоне — только «свернуть» и «закрыть»: окон поверх и полоски для игр нет */
+/* Над рацией на телефоне — настройки, «свернуть» и «закрыть»: окон поверх и полоски для игр нет */
 #win-top,
 #win-bar,
 #win-full {
@@ -31,11 +31,144 @@ body {
   opacity: 0.7;
 }
 
-/* Поле ввода — на экране, а не за его краем: иначе Android не показывает клавиатуру */
-.text-entry {
-  left: 0 !important;
-  top: 0;
-  width: 1px !important;
-  height: 1px;
-  font-size: 16px;
+/* ───────── Настройки (шестерёнка над рацией) ───────── */
+
+.wk-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(5, 6, 8, 0.6);
+  touch-action: pan-y;
+}
+
+.wk-panel[hidden] { display: none; }
+
+.wk-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 88%;
+  overflow-y: auto;
+  padding: 18px 18px 22px;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(180deg, #1d1e22, #141518);
+  box-shadow: 0 -1px 0 #2c2d33, 0 -12px 40px rgba(0, 0, 0, 0.6);
+  color: #ecebe6;
+  font-family: system-ui, sans-serif;
+  touch-action: pan-y;
+}
+
+.wk-sheet h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.wk-sec { margin-top: 14px; }
+
+.wk-sec h3 {
+  margin: 0 0 8px;
+  color: #8f8d86;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wk-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+}
+
+.wk-swatch {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 8px 2px 6px;
+  border: 1px solid #2c2d33;
+  border-radius: 12px;
+  background: #1a1b1f;
+  color: #b9b6ae;
+  font-size: 11px;
+}
+
+.wk-swatch i {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.wk-swatch[aria-pressed="true"] {
+  border-color: var(--label-alt);
+  color: #ecebe6;
+}
+
+.wk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #24252a;
+}
+
+.wk-row__text {
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.wk-row__text small {
+  color: #8f8d86;
+  font-size: 11.5px;
+}
+
+.wk-switch {
+  flex: none;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: #3a3b42;
+  transition: background 0.15s;
+}
+
+.wk-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ecebe6;
+  transition: transform 0.15s;
+}
+
+.wk-switch[aria-pressed="true"] { background: var(--label-alt); }
+.wk-switch[aria-pressed="true"] span { transform: translateX(20px); }
+
+.wk-done {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--label-alt);
+  color: #151515;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.wk-ver {
+  margin: 12px 0 0;
+  color: #5f5d57;
+  font-size: 11px;
+  text-align: center;
 }

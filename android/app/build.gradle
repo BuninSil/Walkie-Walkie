@@ -6,12 +6,41 @@ android {
     namespace 'ru.radio.walkie'
     compileSdk 36
 
+    // Номер версии растёт с каждой сборкой в GitHub Actions — Android ставит новую поверх старой
+    def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '0') as int
+
     defaultConfig {
         applicationId 'ru.radio.walkie'
         minSdk 26
         targetSdk 36
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 100 + buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    // Постоянный ключ подписи: без него Android не примет обновление поверх установленной рации.
+    // Ключ — в секретах репозитория (см. README), в код он не попадает.
+    def keystoreFile = System.getenv('WALKIE_KEYSTORE_FILE')
+    signingConfigs {
+        release {
+            if (keystoreFile) {
+                storeFile file(keystoreFile)
+                storeType 'PKCS12'
+                storePassword System.getenv('WALKIE_KEYSTORE_PASSWORD')
+                keyAlias 'walkie'
+                keyPassword System.getenv('WALKIE_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystoreFile ? signingConfigs.release : null
+        }
     }
 
     compileOptions {
