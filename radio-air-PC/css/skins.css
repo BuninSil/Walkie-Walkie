@@ -155,5 +155,29 @@ html:root[data-skin] .knob {
   background: var(--skin-knob) center bottom / contain no-repeat;
   box-shadow: none;
 }
-html:root[data-skin] .knob__cap,
-html:root[data-skin] .knob__mark { display: none; }
+/* Колпачок — прозрачный (виден фоторендер), но живой: несёт оранжевую риску-указатель,
+   которая крутится вместе с ним и показывает уровень громкости. */
+html:root[data-skin] .knob__cap {
+  display: block;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  /* центр вращения — по центру верхнего торца фото-крутилки (она прижата к низу бокса) */
+  transform-origin: 50% 34%;
+}
+html:root[data-skin] .knob__mark {
+  display: block;
+  top: 12%;
+  width: 4px;
+  height: 20%;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #ff8a1e;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+}
