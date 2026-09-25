@@ -393,15 +393,21 @@
   }
 
   // С ключом звук шифруется до отправки; пока ключ считается — пакет пропадает, но открыто не уходит
+  // Звук сжимается (ADPCM, в 4 раза меньше) — чтобы держать связь на слабой сети.
+  // seq растёт с каждым пакетом: приёмник по нему латает потерянные.
+  let txSeq = 0;
   function transmit(pcm) {
+    const seq = txSeq;
+    txSeq = (txSeq + 1) & 0xff;
+    const adpcm = adpcmEncode(new Int16Array(pcm));
     if (!cfg.scr) {
-      link.sendAudio(openPacket(pcm));
+      link.sendAudio(openPacketC(adpcm, seq));
       return;
     }
     const entry = txKey;
     if (!entry) return;
     sealing = sealing
-      .then(() => sealPacket(entry, pcm))
+      .then(() => sealPacketC(entry, adpcm, seq))
       .then((packet) => link.sendAudio(packet))
       .catch(() => {});
   }
@@ -449,6 +455,7 @@
     if ((source === 'hold' && !pttHeld) || (source === 'hotkey' && !hotkeyHeld) || !radio.power) return;
     tx.line = txLine();
     registerStation(freqOf(tx.line));
+    txSeq = 0;
     Object.assign(tx, { active: true, source, since: performance.now() });
     broadcaster.transmitting = true;
     document.title = '● Передача — Рация';

@@ -15,6 +15,8 @@
 
 const PACKET_OPEN = 0;
 const PACKET_SEALED = 1;
+const PACKET_OPEN_C = 4;   // сжатый (ADPCM) открытый звук — в 4 раза меньше данных
+const PACKET_SEALED_C = 5; // сжатый шифрованный звук
 const SEALED_HEAD = 22;
 const AIR_SALT = new TextEncoder().encode('radio-air/v1');
 const AIR_ITERATIONS = 200000;
@@ -36,16 +38,46 @@ async function deriveAirKey(phrase) {
   return { key, id, idHex: toHex(id) };
 }
 
-function openPacket(pcm) {
+function openPacket(pcm, seq = 0) {
   const out = new Uint8Array(2 + pcm.byteLength);
   out[0] = PACKET_OPEN;
+  out[1] = seq & 0xff; // счётчик пакетов — для восстановления потерь на приёме (старые рации его не читают)
   out.set(new Uint8Array(pcm), 2);
   return out.buffer;
 }
 
-async function sealPacket(entry, pcm) {
+// Сжатый открытый звук: [4][seq][ADPCM]
+function openPacketC(adpcm, seq = 0) {
+  const out = new Uint8Array(2 + adpcm.length);
+  out[0] = PACKET_OPEN_C;
+  out[1] = seq & 0xff;
+  out.set(adpcm, 2);
+  return out.buffer;
+}
+
+// Сжатый шифрованный звук: [5][seq][kid8][iv12][AES-GCM(ADPCM)]
+async function sealPacketC(entry, adpcm, seq = 0) {
+  const head = new Uint8Array(SEALED_HEAD);
+  head[0] = PACKET_SEALED_C;
+  head[1] = seq & 0xff;
+  head.set(entry.id, 2);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  head.set(iv, 10);
+  const sealed = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: head.subarray(0, 10) },
+    entry.key,
+    adpcm,
+  );
+  const out = new Uint8Array(SEALED_HEAD + sealed.byteLength);
+  out.set(head);
+  out.set(new Uint8Array(sealed), SEALED_HEAD);
+  return out.buffer;
+}
+
+async function sealPacket(entry, pcm, seq = 0) {
   const head = new Uint8Array(SEALED_HEAD);
   head[0] = PACKET_SEALED;
+  head[1] = seq & 0xff; // счётчик пакетов (входит в подписанные данные — на приёме проверяется тем же)
   head.set(entry.id, 2);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   head.set(iv, 10);
