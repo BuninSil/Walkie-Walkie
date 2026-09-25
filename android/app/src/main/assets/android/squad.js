@@ -160,7 +160,21 @@
       tick();
     };
     s.onmessage = (e) => {
-      if (typeof e.data === 'string') return;
+      if (typeof e.data === 'string') {
+        // В отряд пришёл новенький — сказать ему, где мы, не дожидаясь очередной отправки
+        try {
+          const m = JSON.parse(e.data);
+          if (m.type === 'station-on' && String(m.station?.name).startsWith('⌁')) {
+            setTimeout(() => {
+              lastPosSent = 0;
+              tick();
+            }, 300 + Math.random() * 1500);
+          }
+        } catch {
+          /* не JSON */
+        }
+        return;
+      }
       const p = new Uint8Array(e.data);
       if (p.length > 6) receive(p.subarray(4));
     };
@@ -312,9 +326,11 @@
     if (state.msgs.length > 200) state.msgs.shift();
     if (msg.mine) return;
     const looking = panel && !panel.hidden && state.tab === 'chat';
-    if (!looking) state.unread++;
+    if (!looking) {
+      state.unread++;
+      toast(`💬 ${msg.name}`, msg.text, () => open('chat'));
+    }
     blip();
-    toast(`💬 ${msg.name}`, msg.text, () => open('chat'));
     if (!shell?.appVisible?.()) shell?.squadAlert?.(`💬 ${msg.name}`, msg.text, false);
   }
 
