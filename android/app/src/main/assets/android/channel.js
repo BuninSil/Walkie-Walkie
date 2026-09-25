@@ -23,7 +23,7 @@
     }
   })();
   cfg.tone = TONES.includes(cfg.tone) ? cfg.tone : 0; // 0 — выключен
-  cfg.bcl = cfg.bcl !== false;                        // по умолчанию включён
+  cfg.bcl = true;                                     // «занятый канал» всегда включён
   const save = () => {
     try {
       localStorage.setItem(STORE, JSON.stringify(cfg));
@@ -237,20 +237,11 @@
     item.append(el('small', 'pv-hint', 'Одна частота — несколько групп. Слышно только тех, у кого тот же тон. Тон неслышный, старые рации его не замечают.'));
     sec.append(item);
 
-    // Занятый канал
-    const bcl = el('label', 'wk-row');
-    const t = el('span', 'wk-row__text', 'Не перебивать (занятый канал)');
-    t.append(el('small', null, 'Пока кто-то говорит, передача заблокирована'));
-    const sw = el('button', 'wk-switch');
-    sw.type = 'button';
-    sw.setAttribute('aria-pressed', String(cfg.bcl));
-    sw.append(el('span'));
-    sw.addEventListener('click', () => {
-      cfg.bcl = !cfg.bcl;
-      save();
-      rerender();
-    });
-    bcl.append(t, sw);
+    // «Не перебивать» всегда включено — отдельной настройки нет
+    const bcl = el('div', 'pv-item');
+    const bh = el('div', 'pv-item__head');
+    bh.append(el('span', null, 'Не перебивать'), el('b', 'pv-value', 'всегда'));
+    bcl.append(bh, el('small', 'pv-hint', 'Пока кто-то говорит на канале, ваша передача заблокирована — не перебить, как на рации.'));
     sec.append(bcl);
     return sec;
   }
