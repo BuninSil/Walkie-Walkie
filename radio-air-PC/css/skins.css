@@ -171,13 +171,15 @@ html:root[data-skin] .knob__cap {
   /* центр вращения — по центру верхнего торца фото-крутилки (она прижата к низу бокса) */
   transform-origin: 50% 34%;
 }
+/* Риска — длинная тонкая яркая стрелка от центра верхнего торца к краю (как на референсе 16).
+   Нижний конец совпадает с центром вращения колпачка (34%), поэтому крутится как стрелка часов. */
 html:root[data-skin] .knob__mark {
   display: block;
-  top: 12%;
-  width: 4px;
-  height: 20%;
-  margin-left: -2px;
+  top: 5%;
+  width: 3px;
+  height: 29%;
+  margin-left: -1.5px;
   border-radius: 2px;
-  background: #ff8a1e;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  background: linear-gradient(180deg, #ff9a2a, #ff6a00);
+  box-shadow: 0 0 5px rgba(255, 122, 0, 0.85);
 }
