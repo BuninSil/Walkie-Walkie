@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Рация</title>
+  <meta name="description" content="Рация-виджет по мотивам UV-K5: каналы PMR, двойное прослушивание, VOX, ROGER, шифрование.">
+  <link rel="stylesheet" href="css/widget.css">
+</head>
+<body>
+  <div class="rig" id="rig" data-power="off">
+    <div class="chrome" id="chrome" hidden>
+      <button class="chrome__btn" id="win-top" type="button" aria-pressed="false" title="Поверх всех окон">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.6 4 2.6 2.4V10H8.8L8 15l-.8-5H4V8.4L6.6 6z"/></svg>
+      </button>
+      <button class="chrome__btn" id="win-bar" type="button" title="Свернуть в полоску поверх игр и видео">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h12v4H2zm1.6 1.6v.8h8.8v-.8z"/></svg>
+      </button>
+      <button class="chrome__btn" id="win-full" type="button" title="Развернуть в большое окно">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h4v1.6H4.6V7H3zm6 0h4v4h-1.6V4.6H9zM3 9h1.6v2.4H7V13H3zm8.4 0H13v4H9v-1.6h2.4z"/></svg>
+      </button>
+      <button class="chrome__btn" id="win-min" type="button" title="Свернуть">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10v1.6H3z"/></svg>
+      </button>
+      <button class="chrome__btn chrome__btn--close" id="win-close" type="button" title="Закрыть">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.1 3 8 6.9 11.9 3 13 4.1 9.1 8l3.9 3.9-1.1 1.1L8 9.1 4.1 13 3 11.9 6.9 8 3 4.1z"/></svg>
+      </button>
+    </div>
+
+    <div class="antenna" aria-hidden="true"></div>
+    <div class="beam" aria-hidden="true"></div>
+    <span class="torch" id="torch" aria-hidden="true"></span>
+    <span class="led" id="led" aria-hidden="true"></span>
+    <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Питание и громкость"
+         aria-valuemin="0" aria-valuemax="10" aria-valuenow="7"
+         title="Щелчок — включить или выключить. Колесо мыши или поворот — громкость">
+      <div class="knob__cap" id="knob-cap"><span class="knob__mark"></span></div>
+    </div>
+
+    <div class="side">
+      <button class="side__ptt" id="ptt" type="button" title="PTT — держите и говорите. Пробел — то же самое, F8 — включить или выключить передачу из любого окна"><span>PTT</span></button>
+      <button class="side__key" id="side1" type="button" title="Боковая 1 — Monitor: открыть шумоподавитель"><span>MON</span></button>
+      <button class="side__key" id="side2" type="button" title="Боковая 2 — фонарик"><span>☼</span></button>
+    </div>
+
+    <div class="body">
+      <div class="grille" aria-hidden="true">
+        <span class="brand">РАДИО</span>
+        <span class="model">РК-5</span>
+      </div>
+
+      <div class="lcd" id="lcd">
+        <div class="lcd__status">
+          <span class="smeter" id="smeter"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="ico" id="ico-f">F</span>
+          <span class="ico" id="ico-dw">DW</span>
+          <span class="ico" id="ico-vox">VOX</span>
+          <span class="ico" id="ico-scr">S</span>
+          <span class="ico" id="ico-mon">MON</span>
+          <span class="ico" id="ico-lock">
+            <svg viewBox="0 0 10 12" aria-hidden="true"><path d="M2 5V3.5a3 3 0 0 1 6 0V5h1v7H1V5zm1.5 0h3V3.5a1.5 1.5 0 0 0-3 0z"/></svg>
+          </span>
+          <span class="ico ico--net" id="ico-net">NET</span>
+        </div>
+
+        <div class="screen" id="screen-main">
+          <div class="line" id="line-A">
+            <div class="line__top"><span class="line__mark"></span><span class="line__tag"></span><span class="line__rt"></span></div>
+            <div class="line__freq"></div>
+            <div class="line__sub"></div>
+          </div>
+          <div class="line" id="line-B">
+            <div class="line__top"><span class="line__mark"></span><span class="line__tag"></span><span class="line__rt"></span></div>
+            <div class="line__freq"></div>
+            <div class="line__sub"></div>
+          </div>
+        </div>
+
+        <div class="screen screen--menu" id="screen-menu" hidden>
+          <div class="menu__head"><span id="menu-num"></span><span id="menu-code"></span></div>
+          <div class="menu__value" id="menu-value"></div>
+          <div class="menu__hint" id="menu-hint"></div>
+        </div>
+
+        <div class="lcd__msg" id="lcd-msg" hidden></div>
+      </div>
+
+      <div class="keypad" id="keypad">
+        <button class="key key--side" type="button" data-key="menu" title="MENU — меню; в меню — выбрать и подтвердить"><span class="key__main">MENU</span></button>
+        <button class="key" type="button" data-key="1" title="F+1 BAND — сетка каналов PMR / LPD"><span class="key__alt">BAND</span><span class="key__main">1</span></button>
+        <button class="key" type="button" data-key="2" title="F+2 A/B — рабочий канал A или B"><span class="key__alt">A/B</span><span class="key__main">2</span></button>
+        <button class="key" type="button" data-key="3" title="F+3 VFO/MR — частота или каналы"><span class="key__alt">VFO MR</span><span class="key__main">3</span></button>
+
+        <button class="key key--side" type="button" data-key="up" title="Вверх: следующий канал или частота, в меню — следующий пункт"><span class="key__main">▲</span></button>
+        <button class="key" type="button" data-key="4" title="F+4 FC — нет в этой рации"><span class="key__alt">FC</span><span class="key__main">4</span></button>
+        <button class="key" type="button" data-key="5" title="F+5 NOAA — нет в этой рации"><span class="key__alt">NOAA</span><span class="key__main">5</span></button>
+        <button class="key" type="button" data-key="6" title="F+6 H/M/L — нет в этой рации"><span class="key__alt">H/M/L</span><span class="key__main">6</span></button>
+
+        <button class="key key--side" type="button" data-key="down" title="Вниз: предыдущий канал или частота, в меню — предыдущий пункт"><span class="key__main">▼</span></button>
+        <button class="key" type="button" data-key="7" title="F+7 VOX — передача голосом вкл/выкл"><span class="key__alt">VOX</span><span class="key__main">7</span></button>
+        <button class="key" type="button" data-key="8" title="F+8 R — нет в этой рации"><span class="key__alt">R</span><span class="key__main">8</span></button>
+        <button class="key" type="button" data-key="9" title="F+9 CALL — нет в этой рации"><span class="key__alt">CALL</span><span class="key__main">9</span></button>
+
+        <button class="key key--side" type="button" data-key="exit" title="EXIT — назад, отмена, выход из FM-радио"><span class="key__main">EXIT</span></button>
+        <button class="key" type="button" data-key="star" title="Держите * — сканирование"><span class="key__alt">SCAN</span><span class="key__main">✱</span></button>
+        <button class="key" type="button" data-key="0" title="F+0 FM — FM-радио 88–108 МГц"><span class="key__alt">FM</span><span class="key__main">0</span></button>
+        <button class="key key--f" type="button" data-key="f" title="F — функция следующей кнопки. Держите F — блокировка кнопок"><span class="key__alt">#</span><span class="key__main">F</span></button>
+      </div>
+
+      <div class="mic" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+
+    <input class="text-entry" id="text-entry" autocomplete="off" spellcheck="false" maxlength="64" aria-label="Ввод текста">
+  </div>
+
+  <!-- Полоска: та же рация, свёрнутая в строку поверх игр и видео -->
+  <div class="bar" id="bar">
+    <div class="bar__strip" id="bar-strip">
+      <span class="bar__lamp" id="bar-lamp" aria-hidden="true"></span>
+      <span class="bar__status" id="bar-status">—</span>
+      <span class="bar__sep" aria-hidden="true"></span>
+      <button class="bar__ch" id="bar-ch-A" type="button" title="Канал A: щелчок — сделать рабочим, колесо — сменить канал">
+        <span class="bar__ch-tag">A</span><span class="bar__ch-freq"></span>
+      </button>
+      <button class="bar__ch" id="bar-ch-B" type="button" title="Канал B: щелчок — сделать рабочим, колесо — сменить канал">
+        <span class="bar__ch-tag">B</span><span class="bar__ch-freq"></span>
+      </button>
+      <span class="bar__sep" aria-hidden="true"></span>
+      <span class="bar__mic" id="bar-mic" title="Уровень микрофона"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="bar__key" id="bar-key" title="Горячая клавиша рации"></span>
+      <button class="bar__btn" id="bar-settings" type="button" title="Настройки и горячие клавиши">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.8 1h2.4l.4 1.9 1.2.5 1.6-1.1 1.7 1.7-1.1 1.6.5 1.2 1.9.4v2.4l-1.9.4-.5 1.2 1.1 1.6-1.7 1.7-1.6-1.1-1.2.5-.4 1.9H6.8l-.4-1.9-1.2-.5-1.6 1.1-1.7-1.7 1.1-1.6-.5-1.2L.6 9.2V6.8l1.9-.4.5-1.2-1.1-1.6 1.7-1.7 1.6 1.1 1.2-.5zM8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8"/></svg>
+      </button>
+      <button class="bar__btn" id="bar-expand" type="button" title="Развернуть в рацию">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h4v1.6H4.6V7H3zm6 0h4v4h-1.6V4.6H9zM3 9h1.6v2.4H7V13H3zm8.4 0H13v4H9v-1.6h2.4z"/></svg>
+      </button>
+    </div>
+
+    <div class="bar__panel" id="bar-panel" hidden>
+      <section class="bp-section">
+        <h3>Горячие клавиши</h3>
+        <p class="bp-note" id="bp-hook"></p>
+        <div class="bp-keys" id="bp-keys"></div>
+        <div class="bp-row">
+          <span class="bp-label">Рация на клавише</span>
+          <div class="bp-seg" id="bp-ptt-mode">
+            <button type="button" data-mode="hold">Держу — говорю</button>
+            <button type="button" data-mode="toggle">Нажал / нажал</button>
+          </div>
+        </div>
+      </section>
+      <section class="bp-section">
+        <h3>Полоска</h3>
+        <label class="bp-row">
+          <span class="bp-label">Прозрачность</span>
+          <input type="range" id="bp-opacity" min="35" max="100" step="5">
+        </label>
+        <label class="bp-row">
+          <span class="bp-label">Громкость</span>
+          <input type="range" id="bp-volume" min="0" max="100" step="5">
+        </label>
+        <div class="bp-row">
+          <span class="bp-label">Мышь насквозь <small>(Alt — двигать и нажимать)</small></span>
+          <button class="bp-switch" id="bp-through" type="button" aria-pressed="false"><span></span></button>
+        </div>
+        <div class="bp-row">
+          <span class="bp-label">Проверить микрофон</span>
+          <button class="bp-btn" id="bp-mic" type="button">Включить</button>
+        </div>
+      </section>
+      <button class="bp-close" id="bp-close" type="button">Готово</button>
+    </div>
+  </div>
+
+  <script src="js/audio-kit.js"></script>
+  <script src="js/stations.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/crypto.js"></script>
+  <script src="js/live.js"></script>
+  <script src="js/link.js"></script>
+  <script src="js/widget.js"></script>
+</body>
+</html>
