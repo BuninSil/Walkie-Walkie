@@ -1,0 +1,321 @@
+/*
+ * Внешний вид рации на телефоне: расцветки и фактуры корпуса, экран, свечение, фоны, шрифты.
+ * Всё — поверх стилей рации (widget.css), раскладку и размеры не трогаем.
+ * Цвета приходят переменными от look.js, режимы — атрибутами на <html>:
+ *   data-finish, data-lcd, data-pattern, data-lcd-image, data-glow, data-antenna
+ */
+
+/* ───────── Шрифты (OFL, см. fonts/LICENSE-FONTS.txt) ───────── */
+
+@font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Techno'; src: url(fonts/jura-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Techno'; src: url(fonts/jura-cyrillic-700-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Seg7'; src: url(fonts/DSEG7Classic-Bold.woff2) format('woff2'); }
+
+/* Шрифт экрана — через переменную рации --lcd-font; крупные строки масштабируются под шрифт */
+.lcd { font-family: var(--lcd-font) !important; }
+.lcd .line__freq { font-size: calc(24px * var(--wk-fs, 1)); }
+.lcd .menu__value { font-size: calc(22px * var(--wk-fs, 1)); }
+.lcd .lcd__msg { font-size: calc(17px * var(--wk-fs, 1)); }
+.lcd .line__top, .lcd .line__sub, .lcd .menu__hint { font-size: calc(9.5px * var(--wk-fs-small, 1)); }
+.lcd .lcd__status { font-size: calc(9px * var(--wk-fs-small, 1)); }
+
+/* Шрифт кнопок и надписей корпуса */
+.key, .side__ptt span, .side__key span, .brand, .model { font-family: var(--wk-key-font, inherit); }
+
+/* ───────── Фон приложения ───────── */
+
+html body { background: var(--wk-bg, radial-gradient(ellipse at 50% 35%, #23252a 0%, #0d0e10 70%)) !important; }
+
+/* ───────── Фактура корпуса ───────── */
+
+html[data-finish="gloss"] .body {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 28%, transparent 42%),
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
+html[data-finish="metal"] .body {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px, rgba(0, 0, 0, 0.06) 3px 4px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 40%, rgba(255, 255, 255, 0.1) 60%, transparent),
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
+html[data-finish="carbon"] .body {
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.08), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 0 3px, transparent 3px 6px),
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
+/* Пустынный камуфляж — как у настоящих Quansheng в камуфляже */
+html[data-finish="desert"] .body {
+  background:
+    radial-gradient(9px 6px at 30% 20%, #6f5537 60%, transparent 63%) 0 0 / 46px 38px,
+    radial-gradient(12px 7px at 70% 60%, #8f7350 60%, transparent 63%) 0 0 / 54px 44px,
+    radial-gradient(7px 10px at 50% 50%, #e2d2b0 60%, transparent 63%) 0 0 / 40px 50px,
+    radial-gradient(14px 8px at 20% 80%, #a88a5f 60%, transparent 63%) 0 0 / 62px 52px,
+    radial-gradient(6px 5px at 80% 30%, #5b4430 60%, transparent 63%) 0 0 / 34px 30px,
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
+html[data-finish="rubber"] .body {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.05) 0.8px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
+}
+
+/* ───────── Антенны ───────── */
+
+html[data-antenna="off"] .antenna { visibility: hidden; }
+
+/* Родная — в цвет антенны */
+html[data-antenna="stock"] .antenna {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 16px, rgba(255, 255, 255, 0.04) 16px 18px),
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-lo)) !important;
+}
+
+/* Длинная гибкая (как NA-771): тонкий хлыст с колпачком, утолщение у основания.
+   Рация опускается ниже (margin-top), чтобы антенна поместилась над ней */
+html[data-antenna="long"] .rig, html[data-antenna="tele"] .rig { margin-top: 118px; }
+html[data-antenna="long"] .antenna, html[data-antenna="tele"] .antenna {
+  top: -118px;
+  height: 222px;
+  border-radius: 0;
+  box-shadow: none !important;
+}
+html[data-antenna="long"] .antenna {
+  background:
+    radial-gradient(ellipse at 50% 8px, var(--wk-ant-hi) 0 2px, var(--wk-ant) 3px 7px, transparent 7.5px) center top / 22px 18px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 50%, var(--wk-ant-lo)) center 12px / 10px calc(100% - 96px) no-repeat,
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(255, 255, 255, 0.06) 5px 6px) center calc(100% - 18px) / 16px 68px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 50%, var(--wk-ant-lo)) center calc(100% - 18px) / 16px 68px no-repeat !important;
+}
+html[data-antenna="long"] .antenna::after {
+  background: linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant-hi) 50%, var(--wk-ant-lo)) !important;
+}
+
+/* Телескопическая: хромированные колена, шарик на конце */
+html[data-antenna="tele"] .antenna {
+  background:
+    radial-gradient(circle at 50% 6px, #ffffff 0 1.5px, #c9ccd1 2.5px 5px, transparent 5.5px) center top / 22px 14px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 10px / 4px 60px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 68px / 6px 50px no-repeat,
+    linear-gradient(90deg, #5a5d63, #f2f3f5 40%, #9da0a6 60%, #4a4d53) center 116px / 8px 50px no-repeat,
+    linear-gradient(90deg, #4a4d53, #e6e8eb 40%, #8a8d93 60%, #3d4046) center calc(100% - 16px) / 11px 58px no-repeat !important;
+}
+html[data-antenna="tele"] .antenna::after {
+  background: linear-gradient(90deg, #2a2b30, #6a6d73 50%, #2a2b30) !important;
+}
+
+/* Плоская тактическая (как на фото): закруглённый колпачок, плоская гибкая лента,
+   ниже — круглое ребристое утолщение и разъём. Высота — как у родной */
+html[data-antenna="flat"] .antenna {
+  border-radius: 0;
+  box-shadow: none !important;
+  background:
+    radial-gradient(ellipse 7.5px 6px at 50% 6px, var(--wk-ant-hi) 0, var(--wk-ant) 3.5px, var(--wk-ant-lo) 6px, transparent 7px) center top / 22px 13px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo) 0 1.5px, var(--wk-ant) 1.5px 30%, color-mix(in srgb, var(--wk-ant) 70%, var(--wk-ant-hi)) 30% 42%, var(--wk-ant) 42% calc(100% - 1.5px), var(--wk-ant-lo) calc(100% - 1.5px)) center 8px / 12px 47px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-hi) 55%, var(--wk-ant-lo)) center 53px / 13px 5px no-repeat,
+    repeating-linear-gradient(180deg, transparent 0 4px, rgba(255, 255, 255, 0.07) 4px 5px) center 57px / 15px 30px no-repeat,
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 40%, var(--wk-ant-hi) 52%, var(--wk-ant-lo)) center 57px / 15px 30px no-repeat !important;
+}
+
+/* Короткая «пенёк»: толстая, резиновая */
+html[data-antenna="stubby"] .antenna {
+  top: 36px;
+  left: 50px;
+  width: 26px;
+  height: 68px;
+  border-radius: 13px 13px 5px 5px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 7px, rgba(255, 255, 255, 0.05) 7px 8px),
+    linear-gradient(90deg, var(--wk-ant-lo), var(--wk-ant) 45%, var(--wk-ant-lo)) !important;
+}
+
+/* ───────── Экран ───────── */
+
+/* Тёмный: чёрный экран, светящиеся буквы */
+html[data-lcd="dark"] .lcd, html[data-lcd="oled"] .lcd, html[data-lcd="crt"] .lcd { text-shadow: 0 0 calc(4px * var(--wk-glow, 1)) color-mix(in srgb, var(--ink) 70%, transparent); }
+html[data-lcd="oled"] .lcd { text-shadow: none; }
+html[data-lcd="crt"] .lcd { border-radius: 14px / 18px !important; }
+html[data-lcd="crt"] .lcd::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+html[data-lcd="glass"] .lcd.is-lit {
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05) 35%, transparent 50%),
+    linear-gradient(180deg, var(--lcd-lit), var(--lcd-lit-lo)) !important;
+}
+html[data-lcd="gradient"] .lcd.is-lit { background: linear-gradient(135deg, var(--lcd-lit), var(--wk-lcd2)) !important; }
+
+/* Узор поверх экрана */
+html[data-pattern="grid"] .lcd::before, html[data-pattern="dots"] .lcd::before, html[data-pattern="scan"] .lcd::before, html[data-pattern="hex"] .lcd::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+html[data-pattern="grid"] .lcd::before { background: linear-gradient(var(--ink-ghost) 1px, transparent 1px) 0 0 / 8px 8px, linear-gradient(90deg, var(--ink-ghost) 1px, transparent 1px) 0 0 / 8px 8px; }
+html[data-pattern="dots"] .lcd::before { background: radial-gradient(circle, var(--ink-ghost) 1px, transparent 1.5px) 0 0 / 4px 4px; }
+html[data-pattern="scan"] .lcd::before { background: repeating-linear-gradient(180deg, var(--ink-ghost) 0 1px, transparent 1px 3px); }
+html[data-pattern="hex"] .lcd::before { background: radial-gradient(circle at 50% 50%, transparent 3px, var(--ink-ghost) 3.5px, transparent 4.5px) 0 0 / 10px 9px; }
+.lcd > * { position: relative; z-index: 1; }
+.lcd > .lcd__msg { position: absolute; z-index: 2; }
+
+/* Фон экрана (готовый или своя картинка) — поверх него полупрозрачная подсветка, чтобы цифры читались */
+html[data-lcd-image] .lcd.is-lit, html[data-lcd-image] .lcd:not(.is-lit) {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--lcd-lit) calc(var(--wk-lcd-tint, 55) * 1%), transparent), color-mix(in srgb, var(--lcd-lit-lo) calc(var(--wk-lcd-tint, 55) * 1%), transparent)),
+    var(--wk-lcd-image) !important;
+}
+html[data-lcd-image] .lcd .lcd__msg { background: color-mix(in srgb, var(--lcd-lit) 88%, transparent) !important; }
+
+/* ───────── Мягкое свечение: экран и надписи светятся цветом цифр, корпус — как был ───────── */
+
+html[data-glow] .lcd {
+  box-shadow:
+    0 0 0 3px #0b0c0e,
+    0 0 0 4px #2e2f35,
+    0 0 calc(18px * var(--wk-glow)) color-mix(in srgb, var(--ink) 35%, transparent),
+    inset 0 0 calc(16px * var(--wk-glow)) color-mix(in srgb, var(--ink) 18%, transparent) !important;
+}
+html[data-glow] .lcd .line__freq, html[data-glow] .lcd .menu__value, html[data-glow] .lcd .lcd__msg {
+  text-shadow: 0 0 calc(8px * var(--wk-glow)) color-mix(in srgb, var(--ink) 60%, transparent);
+}
+html[data-glow] .key__alt, html[data-glow] .key--f .key__main { text-shadow: 0 0 calc(6px * var(--wk-glow)) color-mix(in srgb, var(--label-alt) 70%, transparent); }
+html[data-glow] .led.is-tx { box-shadow: 0 0 calc(16px * var(--wk-glow)) 3px var(--led-tx); }
+html[data-glow] .led.is-rx { box-shadow: 0 0 calc(16px * var(--wk-glow)) 3px var(--led-rx); }
+
+/* ───────── Редактор внешнего вида ───────── */
+
+.lk {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 9, 11, 0.55);
+  font-family: system-ui, sans-serif;
+  color: #ecebe6;
+  touch-action: pan-y;
+}
+.lk[hidden] { display: none; }
+
+.lk__preview { flex: 1; min-height: 0; }
+
+.lk__sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: 62%;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(180deg, #1d1e22, #141518);
+  box-shadow: 0 -1px 0 #2c2d33, 0 -12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.lk__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 6px;
+}
+.lk__head h2 { flex: 1; margin: 0; font-size: 16px; }
+
+.lk__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 14px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.lk__tabs::-webkit-scrollbar { display: none; }
+.lk__tabs button {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid #2c2d33;
+  border-radius: 999px;
+  background: #1a1b1f;
+  color: #b9b6ae;
+  font: 600 13px system-ui, sans-serif;
+}
+.lk__tabs button[aria-pressed="true"] { border-color: var(--label-alt); color: #ecebe6; background: #24252a; }
+
+.lk__body { flex: 1; overflow-y: auto; padding: 4px 14px 18px; touch-action: pan-y; }
+
+.lk h3 {
+  margin: 14px 0 8px;
+  color: #8f8d86;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lk__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; }
+.lk__grid--wide { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+.lk__opt {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 5px;
+  min-height: 62px;
+  padding: 8px 4px;
+  border: 1px solid #2c2d33;
+  border-radius: 12px;
+  background: #1a1b1f;
+  color: #b9b6ae;
+  font: 600 11.5px system-ui, sans-serif;
+  text-align: center;
+}
+.lk__opt[aria-pressed="true"] { border-color: var(--label-alt); color: #ecebe6; box-shadow: 0 0 0 1px var(--label-alt) inset; }
+.lk__opt i { width: 30px; height: 30px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.5); }
+.lk__opt b { font-size: 17px; font-weight: 400; color: #ecebe6; line-height: 1.1; }
+.lk__opt--theme { min-height: 84px; }
+.lk__opt--theme i { width: 100%; height: 38px; border-radius: 8px; }
+
+.lk__custom {
+  position: relative;
+  overflow: hidden;
+}
+.lk__custom input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.lk__custom i { background: conic-gradient(#ff3b2f, #ffd23c, #6ee06e, #4cd2ff, #b86bff, #ff3b2f) !important; }
+
+.lk__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #24252a;
+  font-size: 14px;
+}
+.lk__row input[type="range"] { flex: 1; max-width: 55%; accent-color: var(--label-alt); }
+
+.lk__btn {
+  padding: 9px 14px;
+  border: 1px solid #2c2d33;
+  border-radius: 10px;
+  background: #24252a;
+  color: #ecebe6;
+  font: 700 13px system-ui, sans-serif;
+}
+.lk__btn--accent { border-color: transparent; background: var(--label-alt); color: #141414; }
+.lk__btn--danger { color: #ff8a80; }
+.lk__note { margin: 8px 0 0; color: #8f8d86; font-size: 12px; }
+
+.lk__grid--colors { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+.lk__opt--color { min-height: 46px; padding: 6px 2px; }
+.lk__opt--color span:empty { display: none; }

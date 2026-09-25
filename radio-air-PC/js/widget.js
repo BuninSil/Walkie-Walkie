@@ -428,6 +428,8 @@
 
   async function txStart(source) {
     if (!radio.power || tx.active || tx.starting || tx.stopping) return;
+    // Занятый канал (BCL): пока кто-то говорит на канале, ручную передачу не начать (VOX не трогаем)
+    if (source !== 'vox' && window.WalkieChannel?.guardPtt?.()) return;
     stopScan();
     if (radio.fm) {
       radio.fm = false; // передача всегда на рабочем канале рации
