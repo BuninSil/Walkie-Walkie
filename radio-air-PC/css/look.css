@@ -82,14 +82,14 @@ html[data-camo-tex] .keypad .key,
 html[data-camo-tex] .side__ptt,
 html[data-camo-tex] .side__key {
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0.07) 22%, transparent 40%),
-    radial-gradient(150% 85% at 50% -18%, rgba(255, 255, 255, 0.22), transparent 55%),
-    linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.32)),
-    var(--camo-tex) 0 0 / 200px 200px !important;
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 44%),
+    radial-gradient(150% 80% at 50% -20%, rgba(255, 255, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, transparent 56%, rgba(0, 0, 0, 0.22)),
+    var(--camo-tex) 0 0 / 210px 210px !important;
 }
-html[data-camo-tex] .keypad .key { background-size: 100% 100%, 100% 100%, 100% 100%, 92px 92px !important; }
+html[data-camo-tex] .keypad .key { background-size: 100% 100%, 100% 100%, 100% 100%, 88px 88px !important; }
 html[data-camo-tex] .side__ptt,
-html[data-camo-tex] .side__key { background-size: 100% 100%, 100% 100%, 100% 100%, 80px 120px !important; }
+html[data-camo-tex] .side__key { background-size: 100% 100%, 100% 100%, 100% 100%, 76px 120px !important; }
 
 html[data-finish="rubber"] .body {
   background:
