@@ -14,10 +14,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -58,7 +54,7 @@
         <service
             android:name=".WalkieService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback|microphone|location" />
+            android:foregroundServiceType="mediaPlayback|microphone" />
 
         <!-- Скачанное обновление для обычного установщика APK (если системная сессия не справилась) -->
         <provider

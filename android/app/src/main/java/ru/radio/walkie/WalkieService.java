@@ -169,8 +169,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                 types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
             }
-            // Карта отряда: местоположение и в фоне — только если включено и разрешено
-            if (SquadGps.enabled(this) && SquadGps.permitted(this)) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
         }
         try {
             shownText = null;
@@ -180,7 +178,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
             return START_NOT_STICKY;
         }
         updateBubble();
-        SquadGps.sync(this);
         return START_NOT_STICKY;
     }
 
@@ -302,52 +299,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
         }
     }
 
-    // Отряд: сообщение на канал или SOS (squad.js). SOS — как будильник: звук тревоги и вибрация
-    static void squadAlert(Context context, String title, String text, boolean sos) {
-        NotificationManager nm = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-        String id = sos ? "walkie-sos" : "walkie-squad";
-        NotificationChannel channel = new NotificationChannel(id, sos ? "SOS отряда" : "Сообщения отряда", NotificationManager.IMPORTANCE_HIGH);
-        if (sos) {
-            channel.setDescription("Кто-то на канале подал SOS — с его местом на карте");
-            channel.setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
-                new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).build());
-            channel.enableVibration(true);
-            channel.setVibrationPattern(new long[] { 0, 600, 300, 600, 300, 600 });
-            channel.setBypassDnd(true);
-        } else {
-            channel.setDescription("Короткие сообщения на вашем канале: «на точке», «иду» и свой текст");
-        }
-        nm.createNotificationChannel(channel);
-        Intent open = new Intent(context, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK)
-            .putExtra("squad", sos ? "sos" : "chat");
-        PendingIntent tap = PendingIntent.getActivity(context, sos ? 6 : 5, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        NotificationCompat.Builder b = new NotificationCompat.Builder(context, id)
-            .setSmallIcon(R.drawable.ic_stat_walkie)
-            .setColor(sos ? 0xffff3b2f : 0xffff9a3c)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(tap)
-            .setAutoCancel(true)
-            .setCategory(sos ? NotificationCompat.CATEGORY_ALARM : NotificationCompat.CATEGORY_MESSAGE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-        if (sos) b.setFullScreenIntent(tap, true);
-        try {
-            nm.notify(sos ? "squad-sos" : "squad-msg:" + title, 2, b.build());
-        } catch (SecurityException ignored) {
-            // уведомления запрещены
-        }
-    }
-
-    static void squadAlertClear() {
-        WalkieService s = instance;
-        if (s != null) ((NotificationManager) s.getSystemService(NOTIFICATION_SERVICE)).cancel("squad-sos", 2);
-    }
-
-    static boolean isAppVisible() {
-        return appVisible;
-    }
-
     private static boolean onMyChannel(double f) {
         double mine = AirState.freq;
         return mine > 0 && Math.abs(mine - f) <= (f < 300 ? 0.2 : 0.006);
@@ -370,7 +321,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
             // уже снят
         }
         LockPttActivity.close();
-        SquadGps.stopAll();
         bubble.hide();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();

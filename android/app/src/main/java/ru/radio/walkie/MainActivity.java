@@ -58,8 +58,6 @@ public class MainActivity extends ComponentActivity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String PAGE = "https://" + HOST + "/assets/web/widget.html";
     private static final int MIC_REQUEST = 1;
-    private static final int LOCATION_REQUEST = 3;
-    private String squadIntent; // открыли из уведомления отряда: "sos" / "chat"
     private static final String PREF_KEEP_SCREEN = "keep_screen";
 
     private static MainActivity instance; // только с главного потока
@@ -83,7 +81,6 @@ public class MainActivity extends ComponentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        squadIntent = getIntent() != null ? getIntent().getStringExtra("squad") : null;
         instance = this;
         prefs = getSharedPreferences(WalkieService.PREFS, MODE_PRIVATE);
         updater = Updater.get(this);
@@ -222,8 +219,8 @@ public class MainActivity extends ComponentActivity {
             byte[] chunk = new byte[8192];
             for (int n; (n = in.read(chunk)) > 0; ) buf.write(chunk, 0, n);
             String html = buf.toString("UTF-8")
-                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>\n  <script src=\"/assets/android/squad.js\"></script>")
-                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/squad.css\">\n</head>");
+                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>")
+                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n</head>");
             return new WebResourceResponse("text/html", "utf-8",
                 new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
         } catch (IOException e) {
@@ -253,13 +250,6 @@ public class MainActivity extends ComponentActivity {
     @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
-        if (code == LOCATION_REQUEST) {
-            boolean ok = SquadGps.permitted(this);
-            prefs.edit().putBoolean(SquadGps.PREF_SHARE, ok).apply();
-            WalkieService.start(this); // служба с типом «местоположение» — карта работает и в фоне
-            optionsChanged();
-            return;
-        }
         if (code != MIC_REQUEST || pendingMic == null) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
             pendingMic.grant(new String[] { PermissionRequest.RESOURCE_AUDIO_CAPTURE });
@@ -306,19 +296,6 @@ public class MainActivity extends ComponentActivity {
     /* ───────── Снаружи: кнопка поверх приложений и уведомление ───────── */
 
     // Как горячая клавиша на ПК: ptt-down / ptt-up приходят в рацию через radioDesktop.onHotkey
-    // Новая точка GPS — в карту отряда (squad.js)
-    static void gps(String json) {
-        MainActivity a = instance;
-        if (a != null) a.js("window.__walkieGps&&window.__walkieGps(" + json + ")");
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        String squad = intent.getStringExtra("squad");
-        if (squad != null) js("window.__walkieSquadOpen&&window.__walkieSquadOpen(" + JSONObject.quote(squad) + ")");
-    }
-
     static void hotkey(String action) {
         MainActivity a = instance;
         if (a != null) a.js("window.__walkieHotkey&&window.__walkieHotkey(" + JSONObject.quote(action) + ")");
@@ -360,7 +337,6 @@ public class MainActivity extends ComponentActivity {
             o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
             o.put("lockScreen", WalkieService.lockScreenEnabled(this));
             o.put("joinAlerts", WalkieService.joinAlertsEnabled(this));
-            o.put("shareLocation", SquadGps.enabled(this) && SquadGps.permitted(this));
             o.put("version", BuildConfig.VERSION_NAME);
             o.put("update", updater.toJson());
         } catch (Exception ignored) {
@@ -506,50 +482,6 @@ public class MainActivity extends ComponentActivity {
             runOnUiThread(() -> setTorch(on));
         }
 
-        // Отряд (squad.js): уведомление о сообщении или SOS, последняя точка GPS, откуда открыли
-        @JavascriptInterface
-        public void squadAlert(String title, String text, boolean sos) {
-            WalkieService.squadAlert(MainActivity.this, title, text, sos);
-        }
-
-        @JavascriptInterface
-        public void squadAlertClear() {
-            runOnUiThread(WalkieService::squadAlertClear);
-        }
-
-        @JavascriptInterface
-        public boolean appVisible() {
-            return WalkieService.isAppVisible();
-        }
-
-        @JavascriptInterface
-        public String lastGps() {
-            return SquadGps.last();
-        }
-
-        @JavascriptInterface
-        public String squadIntent() {
-            String s = squadIntent;
-            squadIntent = null;
-            return s;
-        }
-
-        @JavascriptInterface
-        public void vibratePattern(String pattern) {
-            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-            if (v == null || !v.hasVibrator()) return;
-            String[] parts = pattern.split(",");
-            long[] t = new long[parts.length];
-            for (int i = 0; i < parts.length; i++) {
-                try {
-                    t[i] = Long.parseLong(parts[i].trim());
-                } catch (NumberFormatException e) {
-                    return;
-                }
-            }
-            v.vibrate(VibrationEffect.createWaveform(t, -1));
-        }
-
         @JavascriptInterface
         public void vibrate() {
             Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -593,13 +525,6 @@ public class MainActivity extends ComponentActivity {
                 } else if ("lockScreen".equals(name)) {
                     prefs.edit().putBoolean(WalkieService.PREF_LOCK, on).apply();
                     setShowWhenLocked(on);
-                } else if ("shareLocation".equals(name)) {
-                    if (on && !SquadGps.permitted(MainActivity.this)) {
-                        requestPermissions(new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }, LOCATION_REQUEST);
-                        return;
-                    }
-                    prefs.edit().putBoolean(SquadGps.PREF_SHARE, on).apply();
-                    WalkieService.start(MainActivity.this);
                 } else if ("joinAlerts".equals(name)) {
                     prefs.edit().putBoolean(WalkieService.PREF_JOINS, on).apply();
                 } else if ("keepScreen".equals(name)) {
