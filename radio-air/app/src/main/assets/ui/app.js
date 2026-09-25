@@ -5,6 +5,21 @@
  * здесь — только показ состояния и кнопки. Состояние приходит в window.__station ~4 раза в секунду,
  * список треков — в window.__tracks, когда меняется.
  */
+// Список изменений — зашит в приложение, чтобы плашка работала без интернета (пополняется при релизе)
+window.STATION_CHANGELOG = [
+  { ver: '1.0.28', items: [
+    { level: 0, text: '**Обновления как в рации:** проверка при запуске и раз в час, уведомление о новой версии, резервный источник если GitHub недоступен.' },
+    { level: 0, text: '**«Что нового» — за все пропущенные версии** и «История изменений» кнопкой; работает без интернета.' },
+    { level: 0, text: '**Список треков не дёргает страницу** при смене трека.' },
+  ] },
+  { ver: '1.0.24', items: [
+    { level: 0, text: 'Убран «Свой сервер» — станцию не было слышно на рациях, пока он был включён. Станция снова работает через сервер по адресу.' },
+  ] },
+  { ver: '1.0.19', items: [
+    { level: 0, text: '**Внешний вид 🎨:** темы, дисплей, узоры, фоны и шрифты, своя картинка.' },
+  ] },
+];
+
 (() => {
   const app = window.StationApp;
   const $ = (id) => document.getElementById(id);
@@ -170,6 +185,7 @@
 
   $('upd-btn').addEventListener('click', () => app?.update());
   $('upd-auto').addEventListener('click', () => app?.setUpdateAuto(!(st.update?.auto !== false)));
+  $('upd-log').addEventListener('click', () => openChangelog());
 
   function renderUpdate() {
     const u = st.update || {};
@@ -303,36 +319,28 @@
     const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
     const curN = num(version);
     const seenN = num(seen);
-    const prefix = tag.replace(/1\.0\.\d+$/, '');
-    fetch('https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=40', { headers: { Accept: 'application/vnd.github+json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((releases) => {
-        let groups = [];
-        if (Array.isArray(releases)) {
-          groups = releases
-            .filter((rel) => !rel.draft && !rel.prerelease && typeof rel.tag_name === 'string' && rel.tag_name.startsWith(prefix))
-            .map((rel) => ({ n: num(rel.tag_name), ver: '1.0.' + num(rel.tag_name), items: notesList(rel.body || '') }))
-            .filter((g) => g.n > 0 && g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN) && g.items)
-            .sort((a, b) => b.n - a.n);
-        }
-        if (!groups.length) {
-          return fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((rel) => {
-              const items = notesList(rel?.body || '');
-              if (items) showPlate(version, [{ ver: version, items }], css);
-            });
-        }
-        showPlate(version, groups, css);
-      })
-      .catch(() => { /* нет сети — в следующий раз */ })
-      .finally(() => {
-        try {
-          localStorage.setItem(SEEN, version);
-        } catch {
-          /* покажем ещё раз — не страшно */
-        }
-      });
+    // Список изменений зашит в приложении — плашка не зависит от интернета
+    const groups = changelogGroups().filter((g) => g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN));
+    try {
+      localStorage.setItem(SEEN, version);
+    } catch {
+      /* покажем ещё раз — не страшно */
+    }
+    if (groups.length) showPlate(version, groups, css);
+  }
+
+  function changelogGroups() {
+    const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
+    return (Array.isArray(window.STATION_CHANGELOG) ? window.STATION_CHANGELOG : [])
+      .map((g) => ({ n: num(g.ver), ver: g.ver, items: g.items }))
+      .filter((g) => g.n > 0 && Array.isArray(g.items) && g.items.length)
+      .sort((a, b) => b.n - a.n);
+  }
+
+  function openChangelog() {
+    const css = WN_CSS.replace('var(--wn-accent, #ff9a3c)', '#ffb547');
+    const groups = changelogGroups();
+    showPlate(st.version || '', groups.length ? groups : [{ ver: st.version || '', items: [{ level: 0, text: 'Список изменений пока пуст.' }] }], css, 'История изменений');
   }
 
   // Из Markdown релиза — пункты раздела «## Новое…» (или первого списка) с вложенными
@@ -358,7 +366,7 @@
     return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
   }
 
-  function showPlate(version, groups, css) {
+  function showPlate(version, groups, css, heading) {
     const wrap = document.createElement('div');
     wrap.className = 'wn';
     const card = document.createElement('div');
@@ -366,7 +374,9 @@
     const head = document.createElement('div');
     head.className = 'wn__head';
     const many = groups.length > 1;
-    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
+    head.innerHTML = heading
+      ? `<span>📋</span><b>${inline(heading)}</b>`
+      : `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
     const list = document.createElement('ul');
     list.className = 'wn__list';
     list.innerHTML = groups.map((g) =>

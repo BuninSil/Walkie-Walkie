@@ -315,38 +315,24 @@
     const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
     const curN = num(version);
     const seenN = num(seen); // -1 если версии не знаем — покажем только текущую
-    const prefix = tag.replace(/1\.0\.\d+$/, ''); // "v" или "station-v"
-    // Список релизов: соберём всё, что новее той версии, на которой сидел человек
-    fetch('https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=40', { headers: { Accept: 'application/vnd.github+json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((releases) => {
-        let groups = [];
-        if (Array.isArray(releases)) {
-          groups = releases
-            .filter((rel) => !rel.draft && !rel.prerelease && typeof rel.tag_name === 'string' && rel.tag_name.startsWith(prefix))
-            .map((rel) => ({ n: num(rel.tag_name), ver: '1.0.' + num(rel.tag_name), items: notesList(rel.body || '') }))
-            .filter((g) => g.n > 0 && g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN) && g.items)
-            .sort((a, b) => b.n - a.n);
-        }
-        if (!groups.length) {
-          // Не вышло списком — покажем хотя бы текущую
-          return fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((rel) => {
-              const items = notesList(rel?.body || '');
-              if (items) showPlate(version, [{ ver: version, items }], css);
-            });
-        }
-        showPlate(version, groups, css);
-      })
-      .catch(() => { /* нет сети — в следующий раз */ })
-      .finally(() => {
-        try {
-          localStorage.setItem(SEEN, version);
-        } catch {
-          /* покажем ещё раз — не страшно */
-        }
-      });
+    // Список изменений зашит в приложении (changelog.js) — плашка не зависит от интернета
+    const groups = changelogGroups().filter((g) => g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN));
+    try {
+      localStorage.setItem(SEEN, version);
+    } catch {
+      /* покажем ещё раз — не страшно */
+    }
+    if (groups.length) showPlate(version, groups, css);
+  }
+
+  // Зашитый список изменений → группы { n, ver, items }, новее сверху
+  function changelogGroups() {
+    const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
+    const log = Array.isArray(window.WALKIE_CHANGELOG) ? window.WALKIE_CHANGELOG : [];
+    return log
+      .map((g) => ({ n: num(g.ver), ver: g.ver, items: g.items }))
+      .filter((g) => g.n > 0 && Array.isArray(g.items) && g.items.length)
+      .sort((a, b) => b.n - a.n);
   }
 
   // Из Markdown релиза — пункты раздела «## Новое…» (или первого списка) с вложенными
@@ -372,7 +358,14 @@
     return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
   }
 
-  function showPlate(version, groups, css) {
+  // История изменений по кнопке — из зашитого списка, работает без интернета
+  function openChangelog() {
+    const css = WN_CSS.replace('var(--wn-accent, #ff9a3c)', 'var(--label-alt, #ff9a3c)');
+    const groups = changelogGroups();
+    showPlate(native.version || '', groups.length ? groups : [{ ver: native.version || '', items: [{ level: 0, text: 'Список изменений пока пуст.' }] }], css, 'История изменений');
+  }
+
+  function showPlate(version, groups, css, heading) {
     const wrap = document.createElement('div');
     wrap.className = 'wn';
     const card = document.createElement('div');
@@ -380,7 +373,9 @@
     const head = document.createElement('div');
     head.className = 'wn__head';
     const many = groups.length > 1;
-    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
+    head.innerHTML = heading
+      ? `<span>📋</span><b>${inline(heading)}</b>`
+      : `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
     const list = document.createElement('ul');
     list.className = 'wn__list';
     // Несколько версий подряд (человек долго не обновлялся) — каждую с её заголовком
@@ -683,6 +678,10 @@
     usec.append(urow);
     usec.append(toggle('Обновлять автоматически', 'Скачать и поставить, когда рация не передаёт', up.auto !== false,
       (on) => shell?.setUpdateAuto?.(on)));
+    const clog = el('button', 'wk-btn wk-btn--wide', '📋  История изменений');
+    clog.type = 'button';
+    clog.addEventListener('click', () => { openPanel(false); openChangelog(); });
+    usec.append(clog);
     sheet.append(usec);
 
     const done = el('button', 'wk-done', 'Готово');
@@ -701,7 +700,6 @@
   function setupConnError() {
     let box = null;
     let lastErr = null;
-    let hideTimer = 0;
 
     const readable = (why) => {
       if (!why) return null;
@@ -719,29 +717,32 @@
 
     window.__walkieConnError = (why, url) => {
       const addr = (url || '').replace(/^wss?:\/\//, '').replace(/\/ws.*$/, '').replace(/\?.*$/, '');
-      if (!why) { // подключились — прибрать
+      if (!why) { // подключились — убрать совсем
         lastErr = null;
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => box?.remove(), 300);
+        box?.remove();
+        box = null;
         return;
       }
       const text = readable(why);
-      if (text === lastErr) return;
-      lastErr = text;
+      const key = addr + '|' + text;
+      // Плашка висит, пока нет связи; перерисовываем только когда текст поменялся
+      if (box && key === lastErr) return;
+      lastErr = key;
       if (!box) {
         box = el('div', 'wk-err');
         document.body.append(box);
       }
-      clearTimeout(hideTimer);
       box.replaceChildren();
       const t = el('div', 'wk-err__text');
       t.append(el('b', null, addr ? `Нет связи с ${addr}` : 'Нет связи с сервером'), el('span', null, text));
       const x = el('button', 'wk-err__x', '✕');
       x.type = 'button';
-      x.addEventListener('click', () => box.remove());
+      x.addEventListener('click', () => {
+        box?.remove();
+        box = null;
+        lastErr = null; // закрыли вручную; следующая ошибка покажет снова
+      });
       box.append(t, x);
-      // Связь восстановится — уберём сами; но если долго висит, не мозолим вечно
-      hideTimer = setTimeout(() => box?.remove(), 15000);
     };
   }
 

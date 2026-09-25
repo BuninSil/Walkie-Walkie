@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import android.widget.Toast;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
@@ -43,7 +42,6 @@ public class AirSocket {
         .pingInterval(20, TimeUnit.SECONDS)
         .build();
     private final Map<Integer, WebSocket> sockets = new ConcurrentHashMap<>();
-    private volatile String lastProblem = null; // чтобы не повторять одно и то же сообщение при каждой попытке
 
     AirSocket(Activity activity, WebView web) {
         this.activity = activity;
@@ -57,14 +55,12 @@ public class AirSocket {
             request = new Request.Builder().url(url).header("Origin", PC_ORIGIN).build();
         } catch (IllegalArgumentException e) {
             emit(id, "error", "неверный адрес: " + url, 0);
-            problem(url, "неверный адрес");
             emit(id, "close", null, 1006);
             return;
         }
         WebSocket ws = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
-                lastProblem = null;
                 AirState.connected(url, true);
                 emit(id, "error", null, 0); // связь есть — убрать ошибку с экрана
                 emit(id, "open", null, 0);
@@ -103,9 +99,7 @@ public class AirSocket {
             public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                 if (sockets.remove(id) == null) return;
                 if (sockets.isEmpty()) AirState.connected(url, false);
-                String why = describe(t, response);
-                emit(id, "error", why, 0);
-                problem(url, why);
+                emit(id, "error", describe(t, response), 0);
                 emit(id, "close", null, 1006);
             }
         });
@@ -154,13 +148,6 @@ public class AirSocket {
         web.post(() -> web.evaluateJavascript(js.toString(), null));
     }
 
-    // Рация на экране пишет только «нет связи» — причину показываем сообщением Android, один раз
-    private void problem(String url, String what) {
-        String text = "Рация: нет связи с " + url.replaceFirst("^wss?://", "").replaceFirst("/ws$", "") + " — " + what;
-        if (text.equals(lastProblem)) return;
-        lastProblem = text;
-        activity.runOnUiThread(() -> Toast.makeText(activity, text, Toast.LENGTH_LONG).show());
-    }
 
     private static String describe(Throwable t, Response response) {
         if (response != null) {
