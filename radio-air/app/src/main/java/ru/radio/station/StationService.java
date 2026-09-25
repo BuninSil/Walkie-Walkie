@@ -34,6 +34,15 @@ public class StationService extends Service implements Station.Listener {
     private WifiManager.WifiLock wifiLock;
     private Station station;
     private String shown;
+    private final android.os.Handler timers = new android.os.Handler(android.os.Looper.getMainLooper());
+    // Пока станция в фоне работает — проверяем обновления (сам Updater ходит не чаще раза в час)
+    private final Runnable updateTimer = new Runnable() {
+        @Override
+        public void run() {
+            Updater.get(StationService.this).checkSoon();
+            timers.postDelayed(this, 30 * 60 * 1000L);
+        }
+    };
 
     static void start(Context context) {
         try {
@@ -61,6 +70,7 @@ public class StationService extends Service implements Station.Listener {
         wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
         station.addListener(this);
+        updateTimer.run();
     }
 
     @Override
@@ -144,6 +154,7 @@ public class StationService extends Service implements Station.Listener {
     @Override
     public void onDestroy() {
         station.removeListener(this);
+        timers.removeCallbacks(updateTimer);
         if (wakeLock.isHeld()) wakeLock.release();
         if (wifiLock.isHeld()) wifiLock.release();
         super.onDestroy();

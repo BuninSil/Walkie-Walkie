@@ -56,6 +56,7 @@ public class AirSocket {
         try {
             request = new Request.Builder().url(url).header("Origin", PC_ORIGIN).build();
         } catch (IllegalArgumentException e) {
+            emit(id, "error", "неверный адрес: " + url, 0);
             problem(url, "неверный адрес");
             emit(id, "close", null, 1006);
             return;
@@ -65,6 +66,7 @@ public class AirSocket {
             public void onOpen(WebSocket webSocket, Response response) {
                 lastProblem = null;
                 AirState.connected(url, true);
+                emit(id, "error", null, 0); // связь есть — убрать ошибку с экрана
                 emit(id, "open", null, 0);
             }
 
@@ -101,7 +103,9 @@ public class AirSocket {
             public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                 if (sockets.remove(id) == null) return;
                 if (sockets.isEmpty()) AirState.connected(url, false);
-                problem(url, describe(t, response));
+                String why = describe(t, response);
+                emit(id, "error", why, 0);
+                problem(url, why);
                 emit(id, "close", null, 1006);
             }
         });

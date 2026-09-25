@@ -91,6 +91,8 @@
           this.onmessage?.({ type: 'message', data: e.data, target: this });
         } else if (e.type === 'binary') {
           this.onmessage?.({ type: 'message', data: fromBase64(e.data), target: this });
+        } else if (e.type === 'error') {
+          window.__walkieConnError?.(e.data, this.url); // причину — на экран рации
         } else if (e.type === 'close') {
           if (this.readyState === AirWebSocket.CLOSED) return;
           this.readyState = AirWebSocket.CLOSED;
@@ -310,18 +312,41 @@
       localStorage.setItem(SEEN, version);
       return;
     }
-    fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
+    const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
+    const curN = num(version);
+    const seenN = num(seen); // -1 если версии не знаем — покажем только текущую
+    const prefix = tag.replace(/1\.0\.\d+$/, ''); // "v" или "station-v"
+    // Список релизов: соберём всё, что новее той версии, на которой сидел человек
+    fetch('https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=40', { headers: { Accept: 'application/vnd.github+json' } })
       .then((r) => (r.ok ? r.json() : null))
-      .then((rel) => {
-        const items = notesList(rel?.body || '');
-        if (items) showPlate(version, items, css);
+      .then((releases) => {
+        let groups = [];
+        if (Array.isArray(releases)) {
+          groups = releases
+            .filter((rel) => !rel.draft && !rel.prerelease && typeof rel.tag_name === 'string' && rel.tag_name.startsWith(prefix))
+            .map((rel) => ({ n: num(rel.tag_name), ver: '1.0.' + num(rel.tag_name), items: notesList(rel.body || '') }))
+            .filter((g) => g.n > 0 && g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN) && g.items)
+            .sort((a, b) => b.n - a.n);
+        }
+        if (!groups.length) {
+          // Не вышло списком — покажем хотя бы текущую
+          return fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((rel) => {
+              const items = notesList(rel?.body || '');
+              if (items) showPlate(version, [{ ver: version, items }], css);
+            });
+        }
+        showPlate(version, groups, css);
+      })
+      .catch(() => { /* нет сети — в следующий раз */ })
+      .finally(() => {
         try {
           localStorage.setItem(SEEN, version);
         } catch {
           /* покажем ещё раз — не страшно */
         }
-      })
-      .catch(() => { /* нет сети — в следующий раз */ });
+      });
   }
 
   // Из Markdown релиза — пункты раздела «## Новое…» (или первого списка) с вложенными
@@ -347,17 +372,22 @@
     return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
   }
 
-  function showPlate(version, items, css) {
+  function showPlate(version, groups, css) {
     const wrap = document.createElement('div');
     wrap.className = 'wn';
     const card = document.createElement('div');
     card.className = 'wn__card';
     const head = document.createElement('div');
     head.className = 'wn__head';
-    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>`;
+    const many = groups.length > 1;
+    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
     const list = document.createElement('ul');
     list.className = 'wn__list';
-    list.innerHTML = items.map((it) => `<li class="${it.level ? 'is-sub' : ''}">${inline(it.text)}</li>`).join('');
+    // Несколько версий подряд (человек долго не обновлялся) — каждую с её заголовком
+    list.innerHTML = groups.map((g) =>
+      (many ? `<li class="wn__ver">${inline(g.ver)}</li>` : '')
+      + g.items.map((it) => `<li class="${it.level ? 'is-sub' : ''}">${inline(it.text)}</li>`).join(''),
+    ).join('');
     const ok = document.createElement('button');
     ok.type = 'button';
     ok.className = 'wn__ok';
@@ -391,6 +421,9 @@
     .wn__list li.is-sub { margin-left: 16px; list-style: circle; color: #c9c6be; font-size: 13px; }
     .wn__list b { color: #fff; }
     .wn__list code { font-size: 12px; color: #c9c6be; }
+    .wn__span { color: var(--wn-accent, #ff9a3c); font-size: 12px; font-style: normal; font-weight: 700; }
+    .wn__list li.wn__ver { margin: 12px 0 4px -16px; list-style: none; color: var(--wn-accent, #ff9a3c); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
+    .wn__list li.wn__ver:first-child { margin-top: 2px; }
     .wn__ok { margin: 10px 14px 14px; padding: 11px; border: 0; border-radius: 12px; background: var(--wn-accent, #ff9a3c);
       color: #141414; font: 700 15px system-ui, sans-serif; }
     @keyframes wn-in { from { opacity: 0; transform: translateY(-16px); } }
@@ -417,6 +450,7 @@
     setTimeout(() => whatsNew(version, `v${version}`, hadData, WN_CSS.replace('var(--wn-accent, #ff9a3c)', 'var(--label-alt, #ff9a3c)')), 1200);
     setupTextEntry();
     setupLook();
+    setupConnError();
     setupMicRelease();
     // На ПК страница открыта с app:// и «своего» сервера у неё нет; здесь адрес страницы https://,
     // и link.js принял бы его за сервер. Сервер не выбран — пусть рация так и показывает
@@ -656,7 +690,59 @@
     done.addEventListener('click', () => openPanel(false));
     sheet.append(done);
     sheet.append(el('p', 'wk-ver', `Рация для Android${native.version ? ` ${native.version}` : ''} · Авторы: BuninSil и Valex`));
+    const keep = panel.querySelector('.wk-sheet')?.scrollTop || 0; // не прыгать вверх при перерисовке
     panel.replaceChildren(sheet);
+    if (keep) sheet.scrollTop = keep;
+  }
+
+  /* ───────── Ошибка подключения на экране рации ─────────
+   * Тосты Android на части телефонов (MIUI/HyperOS) не показываются — поэтому причину «нет связи»
+   * пишем прямо на экране: неверный адрес, DNS, порт закрыт, 403/404, таймаут, HTTP запрещён. */
+  function setupConnError() {
+    let box = null;
+    let lastErr = null;
+    let hideTimer = 0;
+
+    const readable = (why) => {
+      if (!why) return null;
+      const w = String(why);
+      if (w.includes('адрес не найден')) return 'Адрес не найден. Проверьте адрес сервера (⚙ или MENU → SERVER).';
+      if (w.includes('порт закрыт') || w.includes('сервер выключен')) return 'Порт закрыт или сервер выключен. Проверьте адрес и порт, и что сервер запущен.';
+      if (w.includes('не отвечает')) return 'Сервер не отвечает. На мобильном интернете нужен VPN с иностранным сервером.';
+      if (w.includes('нет маршрута')) return 'Нет пути до сервера. Проверьте интернет и адрес.';
+      if (w.includes('HTTP запрещён') || w.includes('ошибка HTTPS')) return 'Адрес должен начинаться с ws:// (или указывать порт), например 89.1.2.3:8765.';
+      if (w.includes('неверный адрес')) return 'Неверный адрес сервера. Пример: 89.179.146.82:8765 или radio.example.ru.';
+      if (w.includes('403')) return 'Сервер отклонил подключение (403).';
+      if (w.includes('404')) return 'По этому адресу нет сервера рации (404).';
+      return 'Нет связи с сервером: ' + w;
+    };
+
+    window.__walkieConnError = (why, url) => {
+      const addr = (url || '').replace(/^wss?:\/\//, '').replace(/\/ws.*$/, '').replace(/\?.*$/, '');
+      if (!why) { // подключились — прибрать
+        lastErr = null;
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => box?.remove(), 300);
+        return;
+      }
+      const text = readable(why);
+      if (text === lastErr) return;
+      lastErr = text;
+      if (!box) {
+        box = el('div', 'wk-err');
+        document.body.append(box);
+      }
+      clearTimeout(hideTimer);
+      box.replaceChildren();
+      const t = el('div', 'wk-err__text');
+      t.append(el('b', null, addr ? `Нет связи с ${addr}` : 'Нет связи с сервером'), el('span', null, text));
+      const x = el('button', 'wk-err__x', '✕');
+      x.type = 'button';
+      x.addEventListener('click', () => box.remove());
+      box.append(t, x);
+      // Связь восстановится — уберём сами; но если долго висит, не мозолим вечно
+      hideTimer = setTimeout(() => box?.remove(), 15000);
+    };
   }
 
   // Долгое нажатие не должно открывать меню «копировать / выделить»

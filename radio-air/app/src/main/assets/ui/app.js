@@ -257,7 +257,15 @@
     if (st.current !== lastCurrent) {
       lastCurrent = st.current;
       document.querySelectorAll('.list li').forEach((li, i) => li.classList.toggle('is-current', i === st.current && st.onAir));
-      document.querySelector('.list li.is-current')?.scrollIntoView({ block: 'nearest' });
+      // Прокрутка только внутри списка, не дёргая всю страницу
+      const cur = document.querySelector('.list li.is-current');
+      const list = $('list');
+      if (cur && list) {
+        const top = cur.offsetTop - list.offsetTop;
+        if (top < list.scrollTop || top + cur.offsetHeight > list.scrollTop + list.clientHeight) {
+          list.scrollTop = top - list.clientHeight / 2 + cur.offsetHeight;
+        }
+      }
     }
     renderUpdate();
     $('version').textContent = `Радиостанция${st.version ? ` ${st.version}` : ''} · Авторы: BuninSil и Valex`;
@@ -292,18 +300,39 @@
       localStorage.setItem(SEEN, version);
       return;
     }
-    fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
+    const num = (v) => { const m = /1\.0\.(\d+)/.exec(v || ''); return m ? +m[1] : -1; };
+    const curN = num(version);
+    const seenN = num(seen);
+    const prefix = tag.replace(/1\.0\.\d+$/, '');
+    fetch('https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=40', { headers: { Accept: 'application/vnd.github+json' } })
       .then((r) => (r.ok ? r.json() : null))
-      .then((rel) => {
-        const items = notesList(rel?.body || '');
-        if (items) showPlate(version, items, css);
+      .then((releases) => {
+        let groups = [];
+        if (Array.isArray(releases)) {
+          groups = releases
+            .filter((rel) => !rel.draft && !rel.prerelease && typeof rel.tag_name === 'string' && rel.tag_name.startsWith(prefix))
+            .map((rel) => ({ n: num(rel.tag_name), ver: '1.0.' + num(rel.tag_name), items: notesList(rel.body || '') }))
+            .filter((g) => g.n > 0 && g.n <= curN && (seenN < 0 ? g.n === curN : g.n > seenN) && g.items)
+            .sort((a, b) => b.n - a.n);
+        }
+        if (!groups.length) {
+          return fetch(`https://api.github.com/repos/BuninSil/Walkie-Walkie/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((rel) => {
+              const items = notesList(rel?.body || '');
+              if (items) showPlate(version, [{ ver: version, items }], css);
+            });
+        }
+        showPlate(version, groups, css);
+      })
+      .catch(() => { /* нет сети — в следующий раз */ })
+      .finally(() => {
         try {
           localStorage.setItem(SEEN, version);
         } catch {
           /* покажем ещё раз — не страшно */
         }
-      })
-      .catch(() => { /* нет сети — в следующий раз */ });
+      });
   }
 
   // Из Markdown релиза — пункты раздела «## Новое…» (или первого списка) с вложенными
@@ -329,17 +358,21 @@
     return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
   }
 
-  function showPlate(version, items, css) {
+  function showPlate(version, groups, css) {
     const wrap = document.createElement('div');
     wrap.className = 'wn';
     const card = document.createElement('div');
     card.className = 'wn__card';
     const head = document.createElement('div');
     head.className = 'wn__head';
-    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>`;
+    const many = groups.length > 1;
+    head.innerHTML = `<span>✨</span><b>Обновлено до ${inline(version)}</b>${many ? `<i class="wn__span">за ${groups.length} версий</i>` : ''}`;
     const list = document.createElement('ul');
     list.className = 'wn__list';
-    list.innerHTML = items.map((it) => `<li class="${it.level ? 'is-sub' : ''}">${inline(it.text)}</li>`).join('');
+    list.innerHTML = groups.map((g) =>
+      (many ? `<li class="wn__ver">${inline(g.ver)}</li>` : '')
+      + g.items.map((it) => `<li class="${it.level ? 'is-sub' : ''}">${inline(it.text)}</li>`).join(''),
+    ).join('');
     const ok = document.createElement('button');
     ok.type = 'button';
     ok.className = 'wn__ok';
@@ -371,6 +404,9 @@
     .wn__list { margin: 0; padding: 4px 18px 4px 34px; overflow-y: auto; }
     .wn__list li { margin: 5px 0; }
     .wn__list li.is-sub { margin-left: 16px; list-style: circle; color: #c9c6be; font-size: 13px; }
+    .wn__span { color: var(--wn-accent, #ff9a3c); font-size: 12px; font-style: normal; font-weight: 700; }
+    .wn__list li.wn__ver { margin: 12px 0 4px -16px; list-style: none; color: var(--wn-accent, #ff9a3c); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
+    .wn__list li.wn__ver:first-child { margin-top: 2px; }
     .wn__list b { color: #fff; }
     .wn__list code { font-size: 12px; color: #c9c6be; }
     .wn__ok { margin: 10px 14px 14px; padding: 11px; border: 0; border-radius: 12px; background: var(--wn-accent, #ff9a3c);
