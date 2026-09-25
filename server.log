@@ -1,0 +1,34 @@
+2026-09-22 10:14:18  Эфир запущен: http://localhost:8765
+2026-09-22 10:14:18  В локальной сети: http://198.18.0.1:8765
+2026-09-22 10:15:01  Эфир запущен: http://localhost:8765
+2026-09-22 10:15:01  В локальной сети: http://192.168.1.74:8765
+2026-09-22 10:15:33  Эфир запущен: http://localhost:8765
+2026-09-22 10:15:33  В локальной сети: http://192.168.1.74:8765
+2026-09-22 18:27:39  Эфир запущен: http://localhost:8765
+2026-09-22 18:27:39  В локальной сети: http://192.168.1.74:8765
+2026-09-22 18:27:48  Эфир запущен: http://localhost:8765
+2026-09-22 18:27:49  В локальной сети: http://192.168.1.74:8765
+2026-09-22 18:46:57  Эфир запущен: http://localhost:8765
+2026-09-22 18:46:57  В локальной сети: http://192.168.1.74:8765
+2026-09-22 18:52:18  Эфир запущен: http://localhost:8765
+2026-09-22 18:52:18  В локальной сети: http://192.168.1.74:8765
+2026-09-22 18:52:43  Эфир запущен: http://localhost:8765
+2026-09-22 18:52:43  В локальной сети: http://192.168.1.74:8765
+2026-09-23 19:59:54  Эфир запущен: http://localhost:8765
+2026-09-23 19:59:54  В локальной сети: http://192.168.1.74:8765
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\valex\AppData\Local\Programs\Python\Python314\Lib\asyncio\events.py", line 94, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\valex\AppData\Local\Programs\Python\Python314\Lib\asyncio\proactor_events.py", line 166, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+2026-09-23 20:08:42  Эфир запущен: http://localhost:8765
+2026-09-23 20:08:42  В локальной сети: http://192.168.1.74:8765
+2026-09-23 20:08:47  Эфир запущен: http://localhost:8765
+2026-09-23 20:08:47  В локальной сети: http://192.168.1.74:8765
+2026-09-24 01:10:16  Эфир запущен: http://localhost:8765
+2026-09-24 01:10:16  В локальной сети: http://192.168.1.74:8765

@@ -1,0 +1,270 @@
+'use strict';
+
+/*
+ * Живой эфир: станции других людей (приём) и своя станция (передача).
+ */
+
+const LIVE_RATE = 16000;   // частота дискретизации живого эфира, Гц
+const LIVE_CHUNK = 640;    // сэмплов в одном пакете — 40 мс
+const LIVE_JITTER = 0.15;  // запас на неровную доставку по сети, с
+
+// Без ключа шифротекст звучит как цифровая рация: байты модулируются четырьмя тонами (4FSK)
+const FSK4_TONES = [900, 1500, 2100, 2700];
+const FSK4_BAUD = 2400;
+
+/* Станция другого человека. Звук приходит пакетами с сервера. */
+class LiveStation extends Station {
+  constructor(info) {
+    super({ id: `live-${info.id}`, freq: info.freq, name: info.name, seekable: true });
+    this.remoteId = info.id;
+    this.live = true;
+    this.decrypted = false;
+    this.lastChunk = -Infinity;
+    this.playhead = 0;
+    this.fskPhase = 0;
+    this.update(info);
+  }
+
+  update(info) {
+    this.freq = info.freq;
+    this.name = info.name;
+    this.rds = String(info.name).toUpperCase();
+  }
+
+  // Несущая есть, пока идёт звук: отпустили тангенту — в приёмнике снова шум
+  get onAir() {
+    return Boolean(this.ctx) && this.ctx.currentTime - this.lastChunk < 0.35;
+  }
+
+  // Позывной передаётся открыто, как номер абонента в цифровых рациях, — зашифрован только звук
+  lcdText() {
+    return this.encrypted && !this.decrypted ? `${this.rds} · ШИФР` : this.rds;
+  }
+
+  receive(packet, keyring) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running' || packet.length < 2) return;
+    this.lastChunk = ctx.currentTime;
+
+    if (packet[0] === PACKET_OPEN) {
+      this.encrypted = false;
+      const pcm = new Int16Array(packet.buffer, packet.byteOffset + 2, (packet.length - 2) >> 1);
+      this.play(pcmToFloat(pcm), this.reserve(pcm.length));
+      return;
+    }
+    if (packet[0] !== PACKET_SEALED || packet.length <= SEALED_HEAD + 16) return;
+
+    this.encrypted = true;
+    const cipher = packet.subarray(SEALED_HEAD);
+    const samples = (cipher.length - 16) >> 1;
+    // Место в очереди занимаем сразу: расшифровка асинхронная, а порядок важен
+    const when = this.reserve(samples);
+    const entry = keyring.find(packet.subarray(2, 10));
+    if (!entry) {
+      this.decrypted = false;
+      this.play(this.sonify(cipher, samples), when);
+      return;
+    }
+    unsealPacket(entry, packet).then(
+      (pcm) => {
+        this.decrypted = true;
+        this.play(pcmToFloat(new Int16Array(pcm)), when);
+      },
+      () => {
+        this.decrypted = false;
+        this.play(this.sonify(cipher, samples), when);
+      },
+    );
+  }
+
+  // Время начала следующего куска. Буфер опустел или слишком отстал — начинаем с небольшим запасом
+  reserve(samples) {
+    const now = this.ctx.currentTime;
+    if (this.playhead < now || this.playhead > now + 1) this.playhead = now + LIVE_JITTER;
+    const when = this.playhead;
+    this.playhead += samples / LIVE_RATE;
+    return when;
+  }
+
+  play(samples, when) {
+    const ctx = this.ctx;
+    if (!ctx || !samples.length) return;
+    const buf = ctx.createBuffer(1, samples.length, LIVE_RATE);
+    buf.getChannelData(0).set(samples);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.output);
+    src.start(Math.max(when, ctx.currentTime));
+  }
+
+  // Шифротекст → 4FSK: каждые два бита выбирают один из четырёх тонов
+  sonify(bytes, samples) {
+    const out = new Float32Array(samples);
+    const perSymbol = LIVE_RATE / FSK4_BAUD;
+    let phase = this.fskPhase;
+    for (let i = 0; i < samples; i++) {
+      const sym = Math.floor(i / perSymbol);
+      const byte = bytes[(sym >> 2) % bytes.length];
+      const tone = FSK4_TONES[(byte >> ((sym & 3) * 2)) & 3];
+      phase += (2 * Math.PI * tone) / LIVE_RATE;
+      out[i] = Math.sin(phase) * 0.25;
+    }
+    this.fskPhase = phase % (2 * Math.PI);
+    return out;
+  }
+}
+
+function pcmToFloat(pcm) {
+  const out = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) out[i] = pcm[i] / 32768;
+  return out;
+}
+
+/* Своя станция: микрофон и/или трек → пакеты PCM на сервер. */
+class Broadcaster {
+  constructor(onChunk) {
+    this.onChunk = onChunk;   // (ArrayBuffer) => void
+    this.ctx = null;
+    this.input = null;
+    this.mic = null;
+    this.player = null;
+    this.onTrackEnd = null;   // трек доиграл — пора следующий
+    this.onTrackError = null; // файл не удалось воспроизвести
+    this.level = 0;
+    this.transmitting = false;
+  }
+
+  // Микрофон и AudioWorklet браузер даёт только на localhost или по HTTPS
+  static get supported() {
+    return window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia) && typeof AudioWorkletNode !== 'undefined';
+  }
+
+  async open() {
+    if (this.ctx) return;
+    const ctx = new AudioContext();
+    this.ctx = ctx;
+    await ctx.audioWorklet.addModule('js/worklets/capture.js');
+    this.input = ctx.createGain();
+    const node = new AudioWorkletNode(ctx, 'capture', {
+      channelCount: 1,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
+      outputChannelCount: [1],
+      processorOptions: { targetRate: LIVE_RATE, chunk: LIVE_CHUNK },
+    });
+    node.port.onmessage = (e) => {
+      const { pcm, peak } = e.data;
+      this.level = Math.max(peak, this.level * 0.8);
+      if (this.transmitting) this.onChunk(pcm);
+    };
+    // Эфирная обработка, как на настоящих станциях: тихое подтягивается, громкое прижимается,
+    // поэтому голос и музыка звучат одинаково громко (компрессор сам добавляет усиление)
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -26;
+    comp.knee.value = 10;
+    comp.ratio.value = 8;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.25;
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
+    // Сюда же подмешивается сигнал ROGER — мимо измерителя голоса, чтобы VOX на него не срабатывал
+    this.txIn = AudioKit.filter(ctx, 'lowpass', 7000); // всё выше половины LIVE_RATE всё равно потеряется
+    this.input.connect(this.txIn).connect(comp).connect(node).connect(mute).connect(ctx.destination);
+
+    // Чувствительность микрофона и измеритель громкости голоса (до компрессора — для VOX)
+    this.micGain = ctx.createGain();
+    this.micGain.gain.value = this.micLevel ?? 1;
+    this.micGain.connect(this.input);
+    this.meter = ctx.createAnalyser();
+    this.meter.fftSize = 512;
+    this.input.connect(this.meter);
+    this.meterBuf = new Float32Array(this.meter.fftSize);
+  }
+
+  setMicGain(value) {
+    this.micLevel = value;
+    if (this.micGain) this.micGain.gain.setTargetAtTime(value, this.ctx.currentTime, 0.05);
+  }
+
+  // Громкость того, что сейчас идёт в передатчик (RMS), — для VOX
+  inputLevel() {
+    if (!this.meter) return 0;
+    this.meter.getFloatTimeDomainData(this.meterBuf);
+    let sum = 0;
+    for (const v of this.meterBuf) sum += v * v;
+    return Math.sqrt(sum / this.meterBuf.length);
+  }
+
+  // Сигнал конца передачи (ROGER): два коротких тона в эфир. Промис — когда он прозвучал.
+  roger() {
+    if (!this.ctx) return Promise.resolve();
+    const t = this.ctx.currentTime + 0.02;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.frequency.setValueAtTime(1100, t);
+    osc.frequency.setValueAtTime(1600, t + 0.09);
+    g.gain.setValueAtTime(0, this.ctx.currentTime);
+    g.gain.setValueAtTime(0.35, t);
+    g.gain.setValueAtTime(0, t + 0.2);
+    osc.connect(g).connect(this.txIn);
+    osc.start(t);
+    osc.stop(t + 0.22);
+    return new Promise((resolve) => setTimeout(resolve, 320));
+  }
+
+  async setMic(on) {
+    if (on && !this.mic) {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const src = this.ctx.createMediaStreamSource(stream);
+      src.connect(this.micGain);
+      this.mic = { stream, src };
+    } else if (!on && this.mic) {
+      this.mic.src.disconnect();
+      this.mic.stream.getTracks().forEach((t) => t.stop());
+      this.mic = null;
+    }
+  }
+
+  // Треки играют через <audio>: файл читается потоково, а не распаковывается целиком в память
+  async playTrack(url) {
+    if (!this.player) {
+      const audio = new Audio();
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.8;
+      this.ctx.createMediaElementSource(audio).connect(gain).connect(this.input);
+      audio.addEventListener('ended', () => this.onTrackEnd?.());
+      audio.addEventListener('error', () => {
+        if (audio.getAttribute('src')) this.onTrackError?.();
+      });
+      this.player = audio;
+    }
+    this.player.src = url;
+    await this.player.play();
+  }
+
+  stopTrack() {
+    if (!this.player) return;
+    this.player.pause();
+    this.player.removeAttribute('src');
+    this.player.load();
+  }
+
+  get trackPlaying() {
+    return Boolean(this.player && this.player.getAttribute('src') && !this.player.paused);
+  }
+
+  async close() {
+    this.transmitting = false;
+    if (!this.ctx) return;
+    await this.setMic(false);
+    this.stopTrack();
+    this.player = null; // <audio> привязан к контексту навсегда — в следующий раз нужен новый
+    await this.ctx.close();
+    this.ctx = null;
+    this.meter = null;
+    this.micGain = null;
+    this.level = 0;
+  }
+}

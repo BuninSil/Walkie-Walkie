@@ -1,0 +1,70 @@
+{
+  "name": "radio-air",
+  "productName": "Радио",
+  "version": "0.1.0",
+  "description": "Эмулятор радиоэфира: живые станции, рация, шифрование",
+  "author": "Radio",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "ru.radio.air",
+    "productName": "Радио",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "air-server.js",
+      "upnp.js",
+      "hotkeys.js",
+      "package.json",
+      "!**/node_modules/uiohook-napi/prebuilds/{darwin-*,linux-*,win32-arm64}/**",
+      "!**/node_modules/uiohook-napi/{src,libuiohook,build}/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../index.html",
+        "to": "web/index.html"
+      },
+      {
+        "from": "../widget.html",
+        "to": "web/widget.html"
+      },
+      {
+        "from": "../css",
+        "to": "web/css"
+      },
+      {
+        "from": "../js",
+        "to": "web/js"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Radio-Setup-${version}.exe",
+      "shortcutName": "Радио"
+    },
+    "npmRebuild": false
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  }
+}

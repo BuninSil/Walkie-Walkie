@@ -1,0 +1,471 @@
+'use strict';
+
+/*
+ * Приложение «Радио» для Windows.
+ * Показывает тот же приёмник, что и сайт, но микрофон работает без HTTPS,
+ * а свой сервер открывается одной кнопкой: встроенный сервер + UPnP в роутере.
+ *
+ * Два вида окна: большой приёмник и рация-виджет на рабочий стол. Открыт всегда один:
+ * так у приложения одно подключение к серверу и нет эха от самого себя.
+ * Рацию можно свернуть в полоску поверх игр и видео — это то же окно, только компактное.
+ *
+ * Та же оболочка собирается и отдельной программой «Рация»: в package.json стоит
+ * "walkieOnly": true, и тогда большого окна нет вовсе (см. pack_walkie.py).
+ */
+
+const { app, BrowserWindow, Menu, ipcMain, net, protocol, screen, session } = require('electron');
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { AirServer } = require('./air-server');
+const { PortMapper, lanAddresses, isPublicIp } = require('./upnp');
+const { Hotkeys, ACTIONS, DEFAULTS, label } = require('./hotkeys');
+
+const pkg = require('./package.json');
+
+// Только рация, без большого приёмника
+const WALKIE_ONLY = pkg.walkieOnly === true || process.argv.includes('--walkie-only');
+const APP_TITLE = WALKIE_ONLY ? 'Рация' : 'Радио';
+
+// Страницы: в установленном приложении — рядом с ним, при разработке — из папки Radio
+// (или из той, что указана в package.json как webRoot)
+const WEB_ROOT = app.isPackaged
+  ? path.join(process.resourcesPath, 'web')
+  : path.resolve(__dirname, typeof pkg.webRoot === 'string' ? pkg.webRoot : '..');
+const PAGES = WALKIE_ONLY ? ['widget.html'] : ['index.html', 'widget.html']; // первая — страница по умолчанию
+const WIDGET_SIZE = { width: 300, height: 528 };
+const BAR_SIZE = { width: 540, height: 46 };  // полоска и немного места под тень
+const BAR_PANEL_HEIGHT = 640;                 // полоска с открытыми настройками
+
+// Отладка: RADIO_DEBUG_PORT=9222 открывает протокол DevTools для автоматических проверок,
+// RADIO_USER_DATA — отдельная папка профиля, чтобы проверки не трогали настоящие настройки
+if (process.env.RADIO_DEBUG_PORT) app.commandLine.appendSwitch('remote-debugging-port', process.env.RADIO_DEBUG_PORT);
+if (process.env.RADIO_USER_DATA) app.setPath('userData', process.env.RADIO_USER_DATA);
+// RADIO_DEBUG_LOG — файл, куда пишутся ошибки из консоли страниц (для поиска редких сбоев)
+if (process.env.RADIO_DEBUG_LOG) {
+  app.on('web-contents-created', (_e, wc) => {
+    wc.on('console-message', (event, legacyLevel, legacyMessage) => {
+      const level = event.level ?? legacyLevel;
+      if (level !== 'error' && level !== 3) return;
+      const message = event.message ?? legacyMessage;
+      fs.appendFileSync(process.env.RADIO_DEBUG_LOG, `${new Date().toISOString()} [${wc.getType()} ${wc.getURL() || 'пусто'}] ${message}\n`);
+    });
+  });
+}
+
+// Своя схема app:// — защищённая, поэтому страницу пускают к микрофону и шифрованию
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+]);
+
+if (!app.requestSingleInstanceLock()) app.quit();
+
+let win = null;
+let server = null;      // встроенный сервер, если открыт
+let mapper = null;      // проброс порта в роутере
+let hosting = null;     // { port, reused }
+let hostResult = null;  // что сообщили странице при открытии сервера
+
+// ───────── Настройки окон ─────────
+
+const prefsFile = () => path.join(app.getPath('userData'), 'window.json');
+let prefs = {
+  mode: 'full',
+  view: 'widget', // окно рации: 'widget' — рация, 'bar' — полоска
+  widget: { onTop: false },
+  bar: { opacity: 0.92, clickThrough: false },
+  hotkeys: { bindings: { ...DEFAULTS }, pttMode: 'hold' },
+};
+
+function validCombo(c) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.mouse) return [3, 4, 5].includes(c.mouse) ? c : null;
+  return typeof c.key === 'string' && c.key.length <= 20 ? c : null;
+}
+
+function loadPrefs() {
+  try {
+    const data = JSON.parse(fs.readFileSync(prefsFile(), 'utf8'));
+    const saved = data.hotkeys?.bindings ?? {};
+    const bindings = {};
+    for (const action of ACTIONS) bindings[action] = action in saved ? validCombo(saved[action]) : DEFAULTS[action] ?? null;
+    prefs = {
+      mode: data.mode === 'widget' ? 'widget' : 'full',
+      view: data.view === 'bar' ? 'bar' : 'widget',
+      widget: { onTop: false, ...data.widget },
+      bar: {
+        ...data.bar,
+        opacity: Number.isFinite(data.bar?.opacity) ? Math.min(1, Math.max(0.35, data.bar.opacity)) : 0.92,
+        clickThrough: Boolean(data.bar?.clickThrough),
+      },
+      hotkeys: { bindings, pttMode: data.hotkeys?.pttMode === 'toggle' ? 'toggle' : 'hold' },
+    };
+  } catch {
+    /* первый запуск — настройки по умолчанию */
+  }
+}
+
+function savePrefs() {
+  try {
+    fs.writeFileSync(prefsFile(), JSON.stringify(prefs));
+  } catch {
+    /* не страшно: в следующий раз окно откроется по умолчанию */
+  }
+}
+
+// ───────── Окна ─────────
+
+function webPreferences() {
+  return {
+    preload: path.join(__dirname, 'preload.js'),
+    contextIsolation: true,
+    sandbox: true,
+    // Серверы без HTTPS (ws://) — это нормально для приложения: звук шифруется отдельно
+    allowRunningInsecureContent: true,
+  };
+}
+
+function guard(w) {
+  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  w.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('app://')) e.preventDefault();
+  });
+}
+
+function createMain() {
+  const w = new BrowserWindow({
+    width: 1120,
+    height: 940,
+    minWidth: 400,
+    minHeight: 500,
+    backgroundColor: '#0b0c0f',
+    title: APP_TITLE,
+    autoHideMenuBar: true,
+    webPreferences: webPreferences(),
+  });
+  guard(w);
+  w.loadURL('app://radio/index.html');
+  return w;
+}
+
+// Сохранённое место, если оно всё ещё на одном из экранов
+function savedPosition({ x, y }, size) {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
+  const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+    x > a.x - size.width / 2 && y >= a.y - 20 &&
+    x < a.x + a.width - size.width / 2 && y < a.y + a.height - 40);
+  return visible ? { x, y } : null;
+}
+
+function widgetBounds() {
+  return { ...WIDGET_SIZE, ...savedPosition(prefs.widget, WIDGET_SIZE) };
+}
+
+// Полоска по умолчанию — сверху по центру экрана, как у программ записи экрана
+function barBounds(near) {
+  const pos = savedPosition(prefs.bar, BAR_SIZE);
+  if (pos) return { ...BAR_SIZE, ...pos };
+  const area = (near ? screen.getDisplayMatching(near) : screen.getPrimaryDisplay()).workArea;
+  return { ...BAR_SIZE, x: Math.round(area.x + (area.width - BAR_SIZE.width) / 2), y: area.y + 6 };
+}
+
+let panelOpen = false;
+let altHeld = false;
+
+// «Мышь насквозь»: полоска не перехватывает щелчки, пока не зажат Alt
+function applyClickThrough() {
+  if (!win || prefs.mode !== 'widget' || prefs.view !== 'bar') return;
+  const through = prefs.bar.clickThrough && !panelOpen && !altHeld;
+  win.setIgnoreMouseEvents(through, { forward: true });
+}
+
+function createWidget() {
+  const bar = prefs.view === 'bar';
+  const w = new BrowserWindow({
+    ...(bar ? barBounds() : widgetBounds()),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    hasShadow: false,
+    focusable: !bar, // полоска не забирает фокус у игры
+    backgroundColor: '#00000000',
+    title: 'Рация',
+    webPreferences: webPreferences(),
+  });
+  guard(w);
+  if (bar) w.setAlwaysOnTop(true, 'screen-saver');
+  else if (prefs.widget.onTop) w.setAlwaysOnTop(true, 'floating');
+  w.on('moved', () => {
+    if (prefs.view === 'bar' && panelOpen) return; // полоску сдвинули, чтобы влезли настройки
+    const [x, y] = w.getPosition();
+    const key = prefs.view === 'bar' ? 'bar' : 'widget';
+    prefs[key] = { ...prefs[key], x, y };
+    savePrefs();
+  });
+  w.loadURL('app://radio/widget.html?view=' + prefs.view);
+  return w;
+}
+
+// Рация ⇄ полоска — то же окно и тот же эфир, меняется только вид
+function setView(view) {
+  if (!win || prefs.mode !== 'widget') return;
+  const w = win;
+  prefs.view = view;
+  panelOpen = false;
+  savePrefs();
+  if (view === 'bar') {
+    w.setFocusable(false);
+    w.setAlwaysOnTop(true, 'screen-saver');
+    w.setBounds(barBounds(w.getBounds()));
+    applyClickThrough();
+  } else {
+    w.setIgnoreMouseEvents(false);
+    w.setFocusable(true);
+    w.setAlwaysOnTop(Boolean(prefs.widget.onTop), 'floating');
+    w.setBounds(widgetBounds());
+    w.focus();
+  }
+}
+
+// Настройки полоски раскрываются вниз; если внизу не хватает места — полоска приподнимается
+function setPanel(open) {
+  if (!win || prefs.view !== 'bar') return;
+  panelOpen = open;
+  const base = barBounds(win.getBounds());
+  if (open) {
+    const area = screen.getDisplayMatching(base).workArea;
+    const y = Math.min(base.y, area.y + area.height - BAR_PANEL_HEIGHT);
+    win.setBounds({ ...base, y: Math.max(area.y, y), height: BAR_PANEL_HEIGHT });
+  } else {
+    win.setBounds(base);
+  }
+  applyClickThrough();
+}
+
+function openWindow(mode) {
+  if (WALKIE_ONLY) mode = 'widget';
+  const old = win;
+  const created = mode === 'widget' ? createWidget() : createMain();
+  created.on('closed', () => {
+    if (win === created) win = null;
+  });
+  win = created;
+  prefs.mode = mode;
+  panelOpen = false;
+  savePrefs();
+  old?.destroy(); // новое окно уже открыто — приложение не закроется
+  applyClickThrough();
+}
+
+ipcMain.handle('window:get', () => ({
+  walkieOnly: WALKIE_ONLY,
+  mode: prefs.mode,
+  view: prefs.view,
+  onTop: Boolean(prefs.widget.onTop),
+  bar: { opacity: prefs.bar.opacity, clickThrough: prefs.bar.clickThrough },
+  bounds: win?.getBounds(),
+  focusable: win?.isFocusable(),
+  alwaysOnTop: win?.isAlwaysOnTop(),
+  visible: win?.isVisible(),
+}));
+ipcMain.handle('view:set', (_e, view) => {
+  if (view !== 'bar' && view !== 'widget') return false;
+  setView(view);
+  return true;
+});
+ipcMain.handle('bar:panel', (_e, open) => setPanel(Boolean(open)));
+ipcMain.handle('bar:settings', (_e, { opacity, clickThrough } = {}) => {
+  if (Number.isFinite(opacity)) prefs.bar.opacity = Math.min(1, Math.max(0.35, opacity));
+  if (typeof clickThrough === 'boolean') prefs.bar.clickThrough = clickThrough;
+  savePrefs();
+  applyClickThrough();
+  return { opacity: prefs.bar.opacity, clickThrough: prefs.bar.clickThrough };
+});
+ipcMain.handle('window:mode', (_e, mode) => {
+  if (mode !== 'widget' && (mode !== 'full' || WALKIE_ONLY)) return false;
+  setImmediate(() => openWindow(mode)); // сначала ответ странице, потом смена окна
+  return true;
+});
+ipcMain.handle('window:on-top', (_e, on) => {
+  prefs.widget.onTop = Boolean(on);
+  savePrefs();
+  if (prefs.mode === 'widget') win?.setAlwaysOnTop(prefs.widget.onTop, 'floating');
+  return prefs.widget.onTop;
+});
+ipcMain.handle('window:minimize', () => win?.minimize());
+ipcMain.handle('window:close', () => app.quit());
+
+// ───────── Свой сервер ─────────
+
+// Уже работает наш сервер на этом порту (например, python server.py)?
+function isAirServer(port) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: '127.0.0.1', port, path: '/', timeout: 2000 }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => resolve(/<title>(Радио|Рация)<\/title>/.test(body)));
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => resolve(false));
+  });
+}
+
+async function hostStart({ port = 8765, local = false, upnp = true } = {}) {
+  // Сервер уже открыт (например, из другого окна) — просто сообщаем, как к нему подключиться
+  if (hosting && hosting.port === port && hostResult) return hostResult;
+  if (hosting) await hostStop();
+  let reused = false;
+  const candidate = new AirServer(WEB_ROOT, { pages: PAGES });
+  try {
+    await candidate.start(port, local ? '127.0.0.1' : '0.0.0.0');
+    server = candidate;
+  } catch (err) {
+    if ((err.code === 'EADDRINUSE' || err.code === 'EACCES') && await isAirServer(port)) {
+      reused = true; // сервер уже запущен отдельно — приложение просто им пользуется
+    } else if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+      return { ok: false, error: `Порт ${port} занят другой программой` };
+    } else {
+      return { ok: false, error: err.message };
+    }
+  }
+  hosting = { port, reused };
+
+  const result = { ok: true, port, reused, lan: lanAddresses(), upnp: null };
+  if (upnp && !local) {
+    mapper = new PortMapper();
+    try {
+      const externalIp = await mapper.externalIp();
+      await mapper.open(port, APP_TITLE);
+      result.upnp = { ok: true, externalIp, public: Boolean(externalIp) && isPublicIp(externalIp) };
+    } catch (err) {
+      result.upnp = { ok: false, error: err.message };
+      mapper = null;
+    }
+  }
+  hostResult = result;
+  return result;
+}
+
+// keepPort — оставить порт в роутере открытым (сервер работает и без приложения)
+async function hostStop({ keepPort = false } = {}) {
+  const m = mapper;
+  const s = server;
+  mapper = null;
+  server = null;
+  hosting = null;
+  hostResult = null;
+  await Promise.allSettled([keepPort ? m?.forget() : m?.close(), s?.stop()]);
+}
+
+ipcMain.handle('host:start', (_e, options) => hostStart(options));
+ipcMain.handle('host:stop', () => hostStop());
+ipcMain.handle('host:status', () => hostResult);
+
+// ───────── Рация по горячей клавише, даже когда окно свёрнуто ─────────
+
+const hotkeys = new Hotkeys({
+  onAction(action) {
+    // «Спрятать / показать» работает с окном рации, даже когда его не видно
+    if (action === 'hide') {
+      if (!win || prefs.mode !== 'widget') return;
+      if (win.isVisible()) win.hide();
+      else win.showInactive();
+      return;
+    }
+    win?.webContents.send('hotkey', action);
+  },
+  onAlt(held) {
+    altHeld = held;
+    applyClickThrough();
+    win?.webContents.send('bar:alt', held);
+  },
+});
+
+function hotkeyState() {
+  return {
+    hooked: hotkeys.hooked,
+    error: hotkeys.error,
+    pttMode: prefs.hotkeys.pttMode,
+    bindings: Object.fromEntries(ACTIONS.map((a) => [a, { combo: prefs.hotkeys.bindings[a] ?? null, label: label(prefs.hotkeys.bindings[a]) }])),
+  };
+}
+
+function applyHotkeys() {
+  hotkeys.configure(prefs.hotkeys);
+  savePrefs();
+}
+
+ipcMain.handle('hotkeys:get', () => hotkeyState());
+ipcMain.handle('hotkeys:active', (_e, on) => {
+  hotkeys.setActive(Boolean(on));
+  return true;
+});
+ipcMain.handle('hotkeys:set', (_e, action, combo) => {
+  if (!ACTIONS.includes(action)) return hotkeyState();
+  prefs.hotkeys.bindings[action] = validCombo(combo);
+  applyHotkeys();
+  return hotkeyState();
+});
+ipcMain.handle('hotkeys:mode', (_e, mode) => {
+  prefs.hotkeys.pttMode = mode === 'toggle' ? 'toggle' : 'hold';
+  applyHotkeys();
+  return hotkeyState();
+});
+ipcMain.handle('hotkeys:capture', async () => {
+  const result = await hotkeys.captureNext();
+  return result.combo ? { combo: result.combo, label: label(result.combo) } : result;
+});
+ipcMain.handle('hotkeys:cancel', () => hotkeys.cancelCapture());
+// Только для автоматических проверок: «нажать» горячую клавишу без клавиатуры
+ipcMain.handle('hotkeys:simulate', (_e, action, phase) => Boolean(process.env.RADIO_DEBUG_PORT) && hotkeys.simulate(action, phase));
+
+// ───────── Жизненный цикл ─────────
+
+app.on('second-instance', () => {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.focus();
+});
+
+app.whenReady().then(() => {
+  protocol.handle('app', (request) => {
+    const rel = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '') || PAGES[0];
+    const file = path.resolve(WEB_ROOT, rel);
+    const resolved = path.relative(WEB_ROOT, file).split(path.sep).join('/');
+    const allowed = PAGES.includes(resolved) || /^(css|js)\//.test(resolved);
+    if (!allowed || !file.startsWith(WEB_ROOT + path.sep)) return new Response('Not Found', { status: 404 });
+    return net.fetch(pathToFileURL(file).toString());
+  });
+
+  // Микрофон странице разрешён; остальное — нет
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media' || permission === 'clipboard-sanitized-write');
+  });
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');
+
+  if (app.isPackaged) Menu.setApplicationMenu(null);
+  loadPrefs();
+  hotkeys.configure(prefs.hotkeys);
+  hotkeys.start();
+  openWindow(process.argv.includes('--widget') ? 'widget' : prefs.mode);
+});
+
+app.on('window-all-closed', () => app.quit());
+
+// Перед выходом закрываем встроенный сервер и порт в роутере. Если приложение пользовалось
+// отдельно запущенным сервером (server.py с автозапуском), он продолжает работать — тогда и порт
+// оставляем открытым, иначе друзья из интернета перестанут до него доставать.
+let cleaned = false;
+app.on('will-quit', (e) => {
+  hotkeys.stop();
+  if (cleaned || !hosting) return;
+  e.preventDefault();
+  hostStop({ keepPort: hosting.reused }).finally(() => {
+    cleaned = true;
+    app.quit();
+  });
+});
