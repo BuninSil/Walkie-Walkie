@@ -107,8 +107,25 @@
 
   let attached = null; // { b, fx }
 
+  // Восстановить исходный тракт рации (micGain → input, как в live.js)
+  function restore(b) {
+    if (attached?.fx) attached.fx.dispose();
+    attached = null;
+    try {
+      b.micGain.disconnect();
+    } catch {
+      /* уже */
+    }
+    b.micGain.connect(b.input);
+  }
+
   async function attach(b) {
     if (!b?.ctx || !b.micGain || !b.input) return;
+    // «Свой голос»: звуковой тракт рации не трогаем вообще — всё как без исказителя
+    if (current === 'off') {
+      if (attached) restore(b);
+      return;
+    }
     const ctx = b.ctx;
     let fx = null;
     try {
@@ -117,6 +134,11 @@
       fx = null; // обработка не собралась — голос идёт как есть
     }
     if (b.ctx !== ctx) return; // пока собирали, передатчик закрыли
+    if (current === 'off') { // пока собирали — выключили
+      if (fx) fx.dispose();
+      restore(b);
+      return;
+    }
     if (attached?.b === b && attached.fx) attached.fx.dispose();
     b.micGain.disconnect();
     if (fx) {

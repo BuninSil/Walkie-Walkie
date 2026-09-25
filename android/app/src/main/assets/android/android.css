@@ -333,3 +333,38 @@ body {
 .wk-upd__go { flex: none; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--label-alt); color: #151515; font: 700 13px system-ui, sans-serif; }
 .wk-upd__go:disabled { opacity: 0.6; }
 .wk-upd__x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: #8f8d86; font-size: 14px; }
+
+/* ───────── Канал: тоновый шумодав, занятый канал (channel.js) ───────── */
+
+.ch-tones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+.ch-tone {
+  padding: 8px 4px;
+  border: 1px solid #2c2d33;
+  border-radius: 10px;
+  background: #1a1b1f;
+  color: #ecebe6;
+  font: 700 12.5px ui-monospace, 'Roboto Mono', monospace;
+}
+
+.ch-tone[aria-pressed="true"] { border-color: var(--label-alt); background: #2a2010; color: var(--label-alt); }
+
+.ch-toast {
+  position: fixed;
+  left: 50%;
+  top: 40%;
+  z-index: 90;
+  padding: 12px 22px;
+  border: 1px solid rgba(255, 59, 47, 0.6);
+  border-radius: 12px;
+  background: rgba(30, 12, 10, 0.96);
+  color: #ffb4ad;
+  font: 800 15px system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  transform: translate(-50%, -50%) scale(0.9);
+  opacity: 0;
+  transition: opacity 0.12s, transform 0.12s;
+  pointer-events: none;
+}
+
+.ch-toast.is-on { opacity: 1; transform: translate(-50%, -50%) scale(1); }

@@ -622,6 +622,7 @@
     });
     sheet.append(lookBtn);
     for (const sec of window.WalkiePrivacy?.sections(renderPanel) || []) sheet.append(sec); // позывной, ключ, голос
+    if (window.WalkieChannel) sheet.append(window.WalkieChannel.section(renderPanel)); // тоновый шумодав, занятый канал
 
     const sec = el('section', 'wk-sec');
     sec.append(el('h3', null, 'Телефон'));

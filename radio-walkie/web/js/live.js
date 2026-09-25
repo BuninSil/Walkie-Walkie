@@ -6,7 +6,8 @@
 
 const LIVE_RATE = 16000;   // частота дискретизации живого эфира, Гц
 const LIVE_CHUNK = 640;    // сэмплов в одном пакете — 40 мс
-const LIVE_JITTER = 0.15;  // запас на неровную доставку по сети, с
+const LIVE_JITTER = 0.22;  // запас на неровную доставку по сети, с (больше — меньше хрипа на мобильном)
+const LIVE_MAX_LAG = 0.6;  // накопилось задержки больше — пересинхронизируемся, чтобы не росла
 
 // Без ключа шифротекст звучит как цифровая рация: байты модулируются четырьмя тонами (4FSK)
 const FSK4_TONES = [900, 1500, 2100, 2700];
@@ -77,10 +78,14 @@ class LiveStation extends Station {
     );
   }
 
-  // Время начала следующего куска. Буфер опустел или слишком отстал — начинаем с небольшим запасом
+  // Время начала следующего куска. Держим ровную очередь: при недоборе (буфер опустел) или
+  // при накоплении задержки — пересинхронизируемся, оборвав хвост, иначе звук наложился бы (эхо).
   reserve(samples) {
     const now = this.ctx.currentTime;
-    if (this.playhead < now || this.playhead > now + 1) this.playhead = now + LIVE_JITTER;
+    if (this.playhead < now || this.playhead > now + LIVE_JITTER + LIVE_MAX_LAG) {
+      this.flushScheduled();
+      this.playhead = now + LIVE_JITTER;
+    }
     const when = this.playhead;
     this.playhead += samples / LIVE_RATE;
     return when;
@@ -95,6 +100,25 @@ class LiveStation extends Station {
     src.buffer = buf;
     src.connect(this.output);
     src.start(Math.max(when, ctx.currentTime));
+    // Помним запланированные куски, чтобы при пересинхронизации оборвать «хвост» и не было эха
+    (this.scheduled ??= []).push(src);
+    src.onended = () => {
+      const i = this.scheduled.indexOf(src);
+      if (i >= 0) this.scheduled.splice(i, 1);
+    };
+  }
+
+  // Пересинхронизация: обрываем ещё не доигранные куски, чтобы новый звук не наложился на старый
+  flushScheduled() {
+    for (const src of this.scheduled ?? []) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {
+        /* уже остановлен */
+      }
+    }
+    this.scheduled = [];
   }
 
   // Шифротекст → 4FSK: каждые два бита выбирают один из четырёх тонов
