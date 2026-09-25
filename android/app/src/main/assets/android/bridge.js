@@ -487,12 +487,56 @@
   window.__walkieOptions = (o) => {
     native = o;
     renderPanel();
+    updateBanner();
   };
+
+  /* Есть новая версия — плашка на рации, пока не обновится (закрыть — до следующей версии) */
+  let banner = null;
+  function updateBanner() {
+    const u = native.update || {};
+    const show = ['available', 'downloading', 'ready', 'confirm'].includes(u.state) && u.latest;
+    let closed = null;
+    try {
+      closed = localStorage.getItem('walkie.bannerClosed');
+    } catch {
+      /* нет */
+    }
+    if (!show || closed === u.latest) {
+      banner?.remove();
+      banner = null;
+      return;
+    }
+    if (!banner) {
+      banner = el('div', 'wk-upd');
+      document.body.append(banner);
+    }
+    const text = el('span', 'wk-upd__text');
+    text.append(el('b', null, `Обновите рацию до ${u.latest}`));
+    text.append(el('small', null, u.state === 'downloading' ? `Скачиваю… ${u.progress || 0}%`
+      : u.state === 'ready' || u.state === 'confirm' ? 'Скачано — осталось установить' : `У вас ${u.current}`));
+    const go = el('button', 'wk-upd__go', u.state === 'downloading' ? '…' : u.state === 'available' ? 'Обновить' : 'Установить');
+    go.type = 'button';
+    go.disabled = u.state === 'downloading';
+    go.addEventListener('click', () => shell?.update?.());
+    const x = el('button', 'wk-upd__x', '✕');
+    x.type = 'button';
+    x.addEventListener('click', () => {
+      try {
+        localStorage.setItem('walkie.bannerClosed', u.latest);
+      } catch {
+        /* нет */
+      }
+      banner?.remove();
+      banner = null;
+    });
+    banner.replaceChildren(text, go, x);
+  }
 
   let panel = null;
 
   function setupLook() {
     readNative();
+    setTimeout(updateBanner, 1500); // версия уже найдена раньше — сразу напомнить
 
     // Шестерёнка — рядом со «свернуть» и «закрыть», как кнопки окна на ПК
     const chrome = document.getElementById('chrome');

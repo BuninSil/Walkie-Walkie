@@ -48,7 +48,11 @@ public final class Updater {
 
     private static final String RELEASES = "https://api.github.com/repos/BuninSil/Walkie-Walkie/releases?per_page=20";
     private static final String CHANNEL = "updates";
-    private static final long CHECK_EVERY_MS = TimeUnit.HOURS.toMillis(6);        // в фоне
+    // Запасной список релизов: лента страницы GitHub. У API лимит 60 запросов в час на IP, а на мобильном
+    // интернете за одним IP сидит пол-города — API отвечает 403, лента — нет
+    private static final String FEED = "https://github.com/BuninSil/Walkie-Walkie/releases.atom";
+    private static final String DOWNLOAD = "https://github.com/BuninSil/Walkie-Walkie/releases/download/";
+    private static final long CHECK_EVERY_MS = TimeUnit.HOURS.toMillis(1);        // в фоне
     private static final long CHECK_ON_OPEN_MS = TimeUnit.MINUTES.toMillis(1);    // при каждом входе (минута — от повторов)
     private static final int NOTIFY_ID = 77;
 
@@ -130,7 +134,7 @@ public final class Updater {
         return o;
     }
 
-    // Проверка в фоне — не чаще раза в 6 ч
+    // Проверка в фоне — не чаще раза в час
     public void checkSoon() {
         checkIfOlder(CHECK_EVERY_MS);
     }
@@ -138,7 +142,8 @@ public final class Updater {
     private void checkIfOlder(long age) {
         if (midway()) return; // уже скачиваем или ставим — не сбиваем
         long last = prefs.getLong("lastCheck", 0);
-        if (auto() && System.currentTimeMillis() - last > age) check(false);
+        // Проверяем всегда; «Обновлять автоматически» решает только, качать ли и ставить самим
+        if (System.currentTimeMillis() - last > age) check(false);
     }
 
     // Экран приложения открыт / закрыт. Окна установки открываем с экрана: из фона
@@ -177,23 +182,15 @@ public final class Updater {
                 prefs.edit().putLong("lastCheck", System.currentTimeMillis()).apply();
                 int best = currentBuild();
                 String url = null;
-                Request req = new Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build();
-                try (Response r = http.newCall(req).execute()) {
-                    if (!r.isSuccessful()) throw new Exception("GitHub ответил " + r.code());
-                    JSONArray releases = new JSONArray(r.body().string());
-                    for (int i = 0; i < releases.length(); i++) {
-                        JSONObject rel = releases.getJSONObject(i);
-                        if (rel.optBoolean("draft") || rel.optBoolean("prerelease")) continue;
-                        JSONArray assets = rel.optJSONArray("assets");
-                        for (int j = 0; assets != null && j < assets.length(); j++) {
-                            JSONObject a = assets.getJSONObject(j);
-                            Matcher m = assetName.matcher(a.optString("name"));
-                            if (m.matches() && Integer.parseInt(m.group(1)) > best) {
-                                best = Integer.parseInt(m.group(1));
-                                url = a.optString("browser_download_url");
-                            }
-                        }
-                    }
+                String[] found;
+                try {
+                    found = fromApi(best);
+                } catch (Exception apiFailed) {
+                    found = fromFeed(best); // API недоступен (лимит, блокировка) — берём ленту релизов
+                }
+                if (found != null) {
+                    best = Integer.parseInt(found[0]);
+                    url = found[1];
                 }
                 if (url == null) {
                     latest = BuildConfig.VERSION_NAME;
@@ -207,11 +204,67 @@ public final class Updater {
                 state = "available";
                 busy = false;
                 changed();
+                announce();
                 if (auto() || byUser) download();
             } catch (Exception e) {
                 fail("не проверить: " + e.getMessage());
             }
         }, "update-check").start();
+    }
+
+    // Новее нашей: { номер, ссылка на APK } или null
+    private String[] fromApi(int current) throws Exception {
+        int best = current;
+        String url = null;
+        Request req = new Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) throw new Exception("GitHub ответил " + r.code());
+            JSONArray releases = new JSONArray(r.body().string());
+            for (int i = 0; i < releases.length(); i++) {
+                JSONObject rel = releases.getJSONObject(i);
+                if (rel.optBoolean("draft") || rel.optBoolean("prerelease")) continue;
+                JSONArray assets = rel.optJSONArray("assets");
+                for (int j = 0; assets != null && j < assets.length(); j++) {
+                    JSONObject a = assets.getJSONObject(j);
+                    Matcher m = assetName.matcher(a.optString("name"));
+                    if (m.matches() && Integer.parseInt(m.group(1)) > best) {
+                        best = Integer.parseInt(m.group(1));
+                        url = a.optString("browser_download_url");
+                    }
+                }
+            }
+        }
+        return url == null ? null : new String[] { String.valueOf(best), url };
+    }
+
+    // Лента релизов: теги v1.0.N (рация) / station-v1.0.N (станция); APK лежит по постоянному адресу
+    private String[] fromFeed(int current) throws Exception {
+        String tagPrefix = "Station-".equals(BuildConfig.UPDATE_PREFIX) ? "station-v" : "v";
+        Request req = new Request.Builder().url(FEED).header("Accept", "application/atom+xml").build();
+        String body;
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) throw new Exception("GitHub ответил " + r.code());
+            body = r.body().string();
+        }
+        Matcher m = Pattern.compile("/releases/tag/" + Pattern.quote(tagPrefix) + "1\\.0\\.(\\d+)\"").matcher(body);
+        int best = current;
+        while (m.find()) best = Math.max(best, Integer.parseInt(m.group(1)));
+        if (best == current) return null;
+        String tag = tagPrefix + "1.0." + best;
+        return new String[] { String.valueOf(best), DOWNLOAD + tag + "/" + BuildConfig.UPDATE_PREFIX + "1.0." + best + ".apk" };
+    }
+
+    // Нашли новую версию — одно уведомление на версию: «Доступно обновление»
+    private void announce() {
+        String v = latest;
+        if (v == null || v.equals(prefs.getString("announced", null))) return;
+        prefs.edit().putString("announced", v).apply();
+        Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (open == null) return;
+        open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        String app = String.valueOf(context.getApplicationInfo().loadLabel(context.getPackageManager()));
+        main.post(() -> notifyUser("Доступно обновление: " + app + " " + v,
+            auto() ? "Скачиваю и поставлю сам. Нажмите, чтобы открыть" : "Нажмите, чтобы обновить", open));
     }
 
     private void fail(String why) {

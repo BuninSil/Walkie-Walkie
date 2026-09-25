@@ -305,3 +305,31 @@ body {
 .pv-row { display: flex; gap: 8px; }
 .pv-row .pv-btn { flex: 1; }
 .pv-modal__box > .pv-btn { width: 100%; }
+
+/* ───────── Плашка «Обновите рацию» ───────── */
+
+.wk-upd {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(94vw, 420px);
+  padding: 10px 10px 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--label-alt) 55%, #2c2d33);
+  border-radius: 14px;
+  background: rgba(24, 25, 29, 0.97);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: #ecebe6;
+  font: 13px system-ui, sans-serif;
+  transform: translateX(-50%);
+}
+
+.wk-upd__text { flex: 1; display: grid; gap: 1px; min-width: 0; }
+.wk-upd__text b { font-size: 14px; }
+.wk-upd__text small { color: #8f8d86; font-size: 12px; }
+.wk-upd__go { flex: none; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--label-alt); color: #151515; font: 700 13px system-ui, sans-serif; }
+.wk-upd__go:disabled { opacity: 0.6; }
+.wk-upd__x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: #8f8d86; font-size: 14px; }
