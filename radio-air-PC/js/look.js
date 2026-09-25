@@ -286,7 +286,8 @@
     v['--led-tx'] = look.ledTx;
     v['--led-rx'] = look.ledRx;
 
-    // Камуфляж корпуса и кнопок: палитра в переменные, узор рисует look.css
+    // Камуфляж корпуса и кнопок: реалистичная текстура (camo.js) + глянец в look.css.
+    // Палитра тоже уходит в переменные — как запасной CSS-узор, если текстура не загрузилась.
     const camo = CAMO[look.finish];
     if (camo) {
       v['--camo-base'] = camo[0];
@@ -295,6 +296,8 @@
       v['--camo-c'] = camo[3];
       v['--camo-d'] = camo[4];
     }
+    const camoTex = window.WALKIE_CAMO && window.WALKIE_CAMO[look.finish];
+    if (camoTex) v['--camo-tex'] = `url("${camoTex}")`;
 
     // Экран: светлые стили — тёмные буквы на подсветке; тёмные — светящиеся буквы на чёрном
     const darkLcd = ['dark', 'oled', 'crt'].includes(look.lcdStyle);
@@ -351,6 +354,7 @@
     d.lcd = look.lcdStyle;
     d.pattern = look.pattern;
     d.antenna = look.antenna;
+    toggleAttr('camoTex', Boolean(window.WALKIE_CAMO && window.WALKIE_CAMO[look.finish]));
     toggleAttr('glow', look.glow);
     toggleAttr('lcdImage', Boolean(lcdBg));
     if (document.body) window.__walkieFit?.();

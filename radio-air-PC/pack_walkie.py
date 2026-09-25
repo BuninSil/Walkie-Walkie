@@ -52,6 +52,7 @@ FILES = {
     'web/js/crypto.js': ROOT / 'js' / 'crypto.js',
     'web/js/live.js': ROOT / 'js' / 'live.js',
     'web/js/link.js': ROOT / 'js' / 'link.js',
+    'web/js/camo.js': ROOT / 'js' / 'camo.js',
     'web/js/look.js': ROOT / 'js' / 'look.js',
     'web/js/privacy.js': ROOT / 'js' / 'privacy.js',
     'web/js/widget.js': ROOT / 'js' / 'widget.js',
