@@ -54,34 +54,7 @@ html[data-finish="carbon"] .body {
     linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo)) !important;
 }
 
-/* Камуфляж (запасной CSS-узор, если текстура не загрузилась) — только корпус и кнопки клавиатуры.
-   Боковые кнопки (PTT/MON/фонарик) камуфляжем НЕ красим — они чёрные с подписями, как на референсе. */
-html[data-finish^="camo-"] .body,
-html[data-finish^="camo-"] .keypad .key {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 40%, rgba(0, 0, 0, 0.22)),
-    radial-gradient(22px 15px at 20% 25%, var(--camo-a) 70%, transparent 72%) 0 0 / 70px 60px,
-    radial-gradient(26px 17px at 65% 60%, var(--camo-b) 70%, transparent 72%) 18px 20px / 84px 72px,
-    radial-gradient(18px 22px at 45% 82%, var(--camo-c) 70%, transparent 72%) 8px 0 / 60px 80px,
-    radial-gradient(28px 18px at 80% 30%, var(--camo-d) 70%, transparent 72%) 30px 12px / 96px 80px,
-    radial-gradient(16px 13px at 8% 65%, var(--camo-b) 70%, transparent 72%) 0 24px / 56px 58px,
-    radial-gradient(20px 14px at 90% 78%, var(--camo-a) 70%, transparent 72%) 40px 8px / 80px 66px,
-    var(--camo-base) !important;
-}
-html[data-finish^="camo-"] .keypad .key {
-  background-size: 100% 100%, 42px 36px, 50px 44px, 36px 48px, 58px 48px, 34px 35px, 48px 40px, auto !important;
-}
-
-/* Реалистичный камуфляж: текстура (camo.js) + выраженный глянец сверху и тень снизу, как на референсе.
-   Только корпус и кнопки клавиатуры — боковые кнопки остаются чёрными с подписями. */
-html[data-camo-tex] .body,
-html[data-camo-tex] .keypad .key {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.1) 14%, transparent 34%, transparent 60%, rgba(0, 0, 0, 0.28) 100%),
-    linear-gradient(122deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 18%, transparent 40%),
-    var(--camo-tex) 0 0 / 210px 210px !important;
-}
-html[data-camo-tex] .keypad .key { background-size: 100% 100%, 100% 100%, 88px 88px !important; }
+/* Камуфляж корпуса — фотоскины: готовые рендеры кладутся в вырезы, см. css/skins.css. */
 
 html[data-finish="rubber"] .body {
   background:

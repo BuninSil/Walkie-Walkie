@@ -1,0 +1,154 @@
+/*
+ * Фотоскины камуфляжа. Фактура корпуса — готовый рендер (skins/<цвет>_body.png), а живые
+ * элементы (экран, клавиатура, боковые кнопки, ручка) кладутся картинками кнопок в вырезы
+ * корпуса по измеренным координатам. Кнопки работают и жмутся как обычно — при нажатии
+ * подменяется картинка (_pressed). Включается атрибутом html:root[data-skin] из look.js.
+ *
+ * Координаты — в % от рамки .rig, которая точно повторяет пропорции рендера (798×1430).
+ */
+
+html:root[data-skin] body { background: transparent; }
+
+html:root[data-skin] .rig {
+  position: relative;
+  width: 294px;
+  height: 527px; /* 294 / (798/1430) — 1:1 к рендеру */
+  margin: 0 auto;
+  padding: 0;
+  background: var(--skin-body) center / contain no-repeat;
+}
+
+/* Нарисованные детали корпуса заменяет фото */
+html:root[data-skin] .antenna,
+html:root[data-skin] .beam,
+html:root[data-skin] .grille,
+html:root[data-skin] .brand,
+html:root[data-skin] .model,
+html:root[data-skin] .mic { display: none; }
+
+/* Корпус и клавиатура — теперь только контейнеры для позиционирования поверх фото */
+html:root[data-skin] .body {
+  position: static;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+html:root[data-skin] .keypad {
+  display: block;
+  position: static;
+  gap: 0;
+}
+
+/* ───────── Экран в вырезе ───────── */
+html:root[data-skin] .lcd {
+  position: absolute;
+  left: 11.4%;
+  top: 31.4%;
+  width: 81.6%;
+  height: 30%;
+  margin: 0;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* ───────── Клавиатура: 16 кнопок в вырезах (4×4) ─────────
+   Координаты вырезов измерены прямо по body.png (см. отчёт measure). */
+html:root[data-skin] .key {
+  position: absolute;
+  width: 19.7%;
+  height: 7.75%;
+  border-radius: 7px;
+  background: var(--skin-btn) center / 100% 100% no-repeat;
+  box-shadow: none;
+}
+html:root[data-skin] .key:active,
+html:root[data-skin] .key.is-pressed {
+  transform: none;
+  background-image: var(--skin-btn-p);
+  box-shadow: none;
+}
+/* Столбцы */
+html:root[data-skin] .key:nth-child(4n + 1) { left: 11.5%; }
+html:root[data-skin] .key:nth-child(4n + 2) { left: 32.4%; }
+html:root[data-skin] .key:nth-child(4n + 3) { left: 53%; }
+html:root[data-skin] .key:nth-child(4n) { left: 73.5%; }
+/* Ряды */
+html:root[data-skin] .key:nth-child(-n + 4) { top: 63.1%; }
+html:root[data-skin] .key:nth-child(n + 5):nth-child(-n + 8) { top: 71.5%; }
+html:root[data-skin] .key:nth-child(n + 9):nth-child(-n + 12) { top: 79.8%; }
+html:root[data-skin] .key:nth-child(n + 13) { top: 87.95%; }
+
+/* Подписи поверх кнопок — чтобы номера и F-функции читались на рендере */
+html:root[data-skin] .key__main {
+  margin-top: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+html:root[data-skin] .key__alt { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+
+/* ───────── Боковые кнопки: PTT + две малые, чёрные с подписями ───────── */
+html:root[data-skin] .side {
+  position: static;
+  display: contents;
+}
+html:root[data-skin] .side__ptt,
+html:root[data-skin] .side__key {
+  position: absolute;
+  left: 0.4%;
+  border-radius: 0;
+  background: var(--skin-sl) left center / 100% 100% no-repeat;
+  box-shadow: none;
+}
+html:root[data-skin] .side__ptt {
+  top: 43.4%;
+  width: 10%;
+  height: 17.6%;
+}
+html:root[data-skin] #side1 {
+  top: 62.9%;
+  width: 9.8%;
+  height: 8.1%;
+  background-image: var(--skin-ss);
+}
+html:root[data-skin] #side2 {
+  top: 71.4%;
+  width: 9.8%;
+  height: 8.1%;
+  background-image: var(--skin-ss);
+}
+html:root[data-skin] .side__ptt:active,
+html:root[data-skin] .side__ptt.is-held {
+  transform: none;
+  background-image: var(--skin-sl-p);
+}
+html:root[data-skin] .side__key:active {
+  transform: none;
+  background-image: var(--skin-ss-p);
+}
+/* Подписи PTT/MON/☼ поверх рендера */
+html:root[data-skin] .side__ptt span,
+html:root[data-skin] .side__key span {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  color: #e6e4de;
+}
+
+/* ───────── Ручка громкости ───────── */
+/* Крутилка — фоторендер (skins/<цвет>_knob.png). Кладём картинку прямо на .knob (неподвижную),
+   а не на вращающийся колпачок — иначе регулятор кривится при смене громкости. Сажаем на прилив
+   в правом верхнем плече корпуса, низ заводим на корпус, чтобы стоял ровно и без зазора. */
+html:root[data-skin] .knob {
+  position: absolute;
+  left: 73.5%;
+  right: auto;
+  top: 6.5%;
+  width: 19%;
+  height: 11%;
+  border-radius: 0;
+  background: var(--skin-knob) center bottom / contain no-repeat;
+  box-shadow: none;
+}
+html:root[data-skin] .knob__cap,
+html:root[data-skin] .knob__mark { display: none; }

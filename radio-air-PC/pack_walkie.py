@@ -44,6 +44,7 @@ FILES = {
     'web/widget.html': ROOT / 'widget.html',
     'web/css/widget.css': ROOT / 'css' / 'widget.css',
     'web/css/look.css': ROOT / 'css' / 'look.css',
+    'web/css/skins.css': ROOT / 'css' / 'skins.css',
     'web/css/panel.css': ROOT / 'css' / 'panel.css',
     'web/js/audio-kit.js': ROOT / 'js' / 'audio-kit.js',
     'web/js/stations.js': ROOT / 'js' / 'stations.js',
@@ -52,7 +53,6 @@ FILES = {
     'web/js/crypto.js': ROOT / 'js' / 'crypto.js',
     'web/js/live.js': ROOT / 'js' / 'live.js',
     'web/js/link.js': ROOT / 'js' / 'link.js',
-    'web/js/camo.js': ROOT / 'js' / 'camo.js',
     'web/js/look.js': ROOT / 'js' / 'look.js',
     'web/js/privacy.js': ROOT / 'js' / 'privacy.js',
     'web/js/widget.js': ROOT / 'js' / 'widget.js',
@@ -64,6 +64,8 @@ FILES = {
     'web/js/pc-panel.js': ROOT / 'js' / 'pc-panel.js',
     'web/js/worklets/capture.js': ROOT / 'js' / 'worklets' / 'capture.js',
     **{f'web/fonts/{name}': ROOT / 'fonts' / name for name in FONTS},
+    # Фотоскины камуфляжа: готовые рендеры корпуса, кнопок, боковых, ручки (skins/<цвет>_*.png)
+    **{f'web/css/skins/{p.name}': p for p in sorted((ROOT / 'css' / 'skins').glob('*.png'))},
 }
 
 GITIGNORE = 'node_modules/\ndist/\n'
