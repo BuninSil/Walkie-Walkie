@@ -225,8 +225,8 @@ public class MainActivity extends ComponentActivity {
             byte[] chunk = new byte[8192];
             for (int n; (n = in.read(chunk)) > 0; ) buf.write(chunk, 0, n);
             String html = buf.toString("UTF-8")
-                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/changelog.js\"></script>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/camo.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>\n  <script src=\"/assets/android/voice.js\"></script>\n  <script src=\"/assets/android/privacy.js\"></script>\n  <script src=\"/assets/android/channel.js\"></script>")
-                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n</head>");
+                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/changelog.js\"></script>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>\n  <script src=\"/assets/android/voice.js\"></script>\n  <script src=\"/assets/android/privacy.js\"></script>\n  <script src=\"/assets/android/channel.js\"></script>")
+                .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/skins.css\">\n</head>");
             return new WebResourceResponse("text/html", "utf-8",
                 new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
         } catch (IOException e) {

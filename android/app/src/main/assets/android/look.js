@@ -26,18 +26,16 @@
 
   const FINISHES = {
     matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина',
-    'camo-urban': 'Камуфляж город', 'camo-wood': 'Камуфляж лес', 'camo-desert': 'Камуфляж пустыня',
-    'camo-night': 'Камуфляж тёмный', 'camo-purple': 'Камуфляж фиолет', 'camo-red': 'Камуфляж красный',
+    'skin-woodland': 'Камуфляж лес (эксп.)', 'skin-desert': 'Камуфляж пустыня (эксп.)',
+    'skin-urban': 'Камуфляж город (эксп.)', 'skin-arctic': 'Камуфляж арктика (эксп.)',
+    'skin-purple': 'Камуфляж фиолет (эксп.)', 'skin-red': 'Камуфляж красный (эксп.)',
   };
 
-  // Камуфляжи: [база, пятно1, пятно2, пятно3, пятно4]. Наносятся на корпус и кнопки.
-  const CAMO = {
-    'camo-urban':  ['#7f858c', '#4b5158', '#2f343a', '#a7adb3', '#5f666d'],
-    'camo-wood':   ['#5c6438', '#39401f', '#7c6a3d', '#23281380', '#8a7d4a'],
-    'camo-desert': ['#b49b6d', '#6f5537', '#8f7350', '#e2d2b0', '#a2865c'],
-    'camo-night':  ['#3b3f45', '#191b1e', '#565b61', '#0e0f11', '#71767c'],
-    'camo-purple': ['#6a3fa0', '#38205f', '#9a6fd0', '#241040', '#b58fe0'],
-    'camo-red':    ['#8f2f27', '#4a1512', '#b8443a', '#2c0a09', '#c85a4e'],
+  // Фотоскины: фактура = готовый рендер корпуса и кнопок (skins/<цвет>_*.png). Живые элементы
+  // (экран, кнопки, боковые, ручка) кладутся в вырезы — см. skins.css. Значение — префикс файлов.
+  const SKINS = {
+    'skin-woodland': 'woodland', 'skin-desert': 'desert', 'skin-urban': 'urban_gray',
+    'skin-arctic': 'arctic', 'skin-purple': 'purple', 'skin-red': 'red',
   };
   const ANTENNAS = { stock: 'Родная', flat: 'Плоская', long: 'Длинная', tele: 'Телескоп', stubby: 'Короткая', off: 'Без антенны' };
   const LCD_STYLES = {
@@ -286,18 +284,21 @@
     v['--led-tx'] = look.ledTx;
     v['--led-rx'] = look.ledRx;
 
-    // Камуфляж корпуса и кнопок: реалистичная текстура (camo.js) + глянец в look.css.
-    // Палитра тоже уходит в переменные — как запасной CSS-узор, если текстура не загрузилась.
-    const camo = CAMO[look.finish];
-    if (camo) {
-      v['--camo-base'] = camo[0];
-      v['--camo-a'] = camo[1];
-      v['--camo-b'] = camo[2];
-      v['--camo-c'] = camo[3];
-      v['--camo-d'] = camo[4];
+    // Фотоскины камуфляжа (экспериментальные): готовые рендеры корпуса, кнопок, боковых и ручки
+    // кладутся картинками в CSS-переменные, а skins.css расставляет их по вырезам корпуса. Живые
+    // элементы (экран, клавиши, боковые, ручка) сохраняют работу и анимацию.
+    const skin = SKINS[look.finish];
+    if (skin) {
+      const base = `skins/${skin}_`;
+      v['--skin-body'] = `url("${base}body.png")`;
+      v['--skin-btn'] = `url("${base}button_normal.png")`;
+      v['--skin-btn-p'] = `url("${base}button_pressed.png")`;
+      v['--skin-sl'] = `url("${base}side_long_normal.png")`;
+      v['--skin-sl-p'] = `url("${base}side_long_pressed.png")`;
+      v['--skin-ss'] = `url("${base}side_small_normal.png")`;
+      v['--skin-ss-p'] = `url("${base}side_small_pressed.png")`;
+      v['--skin-knob'] = `url("${base}knob.png")`;
     }
-    const camoTex = window.WALKIE_CAMO && window.WALKIE_CAMO[look.finish];
-    if (camoTex) v['--camo-tex'] = `url("${camoTex}")`;
 
     // Экран: светлые стили — тёмные буквы на подсветке; тёмные — светящиеся буквы на чёрном
     const darkLcd = ['dark', 'oled', 'crt'].includes(look.lcdStyle);
@@ -354,7 +355,8 @@
     d.lcd = look.lcdStyle;
     d.pattern = look.pattern;
     d.antenna = look.antenna;
-    toggleAttr('camoTex', Boolean(window.WALKIE_CAMO && window.WALKIE_CAMO[look.finish]));
+    if (skin) d.skin = skin;
+    else delete d.skin;
     toggleAttr('glow', look.glow);
     toggleAttr('lcdImage', Boolean(lcdBg));
     if (document.body) window.__walkieFit?.();
