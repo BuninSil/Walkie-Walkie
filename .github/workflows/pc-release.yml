@@ -10,6 +10,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Опубликовать релиз (создаётся тег vX.Y.Z из версии в package.json)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,7 +26,9 @@ jobs:
       run:
         shell: bash
     env:
-      PUBLISH: ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+      # Публикуем по тегу или по ручному запуску с галочкой publish. electron-builder сам создаёт
+      # релиз и тег vX.Y.Z из версии в package.json (токен Actions это умеет, в отличие от git-пуша тега).
+      PUBLISH: ${{ (startsWith(github.ref, 'refs/tags/') || inputs.publish) && 'always' || 'never' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
