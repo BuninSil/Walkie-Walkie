@@ -6,7 +6,9 @@ name: PC apps (Радио + Рация)
 #   • «Рация» → релиз vX.Y.Z-walkie.0 (пометка pre-release), манифест walkie.yml, канал walkie.
 # electron-updater каждой программы берёт свой трек: станция — последний обычный релиз, рация —
 # последний релиз своего walkie-канала (см. allowPrerelease в main.js).
-# Ручной запуск (workflow_dispatch) с галочкой publish публикует; без неё — только сборка в артефакты.
+# Ручной запуск (workflow_dispatch): выбор «что релизить» (обе / только станция / только рация) и
+# галочка publish. Так станцию и рацию можно выпускать раздельно, разными запусками. Без publish —
+# только сборка в артефакты.
 
 on:
   push:
@@ -14,8 +16,13 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      target:
+        description: Что релизить
+        type: choice
+        options: [both, station, walkie]
+        default: both
       publish:
-        description: Опубликовать релизы (создаются теги из версий в package.json)
+        description: Опубликовать релиз (создаются теги из версий в package.json)
         type: boolean
         default: false
 
@@ -30,6 +37,8 @@ jobs:
         shell: bash
     env:
       PUBLISH: ${{ (startsWith(github.ref, 'refs/tags/') || inputs.publish) && 'yes' || 'no' }}
+      # На пуш тега собираем и станцию, и рацию; при ручном запуске — что выбрали (по умолчанию обе)
+      TARGET: ${{ inputs.target || 'both' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,31 +55,37 @@ jobs:
 
       # ───────── Сборка (без публикации; electron-builder всё равно пишет latest.yml/walkie.yml) ─────────
       - name: Install deps (Радио)
+        if: env.TARGET != 'walkie'
         working-directory: radio-air-PC/desktop
         run: npm ci --no-audit --no-fund
 
       - name: Build Радио
+        if: env.TARGET != 'walkie'
         working-directory: radio-air-PC/desktop
         run: npx electron-builder --win --publish never
 
       - name: Stage Рация sources
+        if: env.TARGET != 'station'
         working-directory: radio-air-PC
         run: python pack_walkie.py
 
       - name: Install deps (Рация)
+        if: env.TARGET != 'station'
         working-directory: radio-air-PC/release/radio-walkie
         run: npm ci --no-audit --no-fund
 
       - name: Build Рация
+        if: env.TARGET != 'station'
         working-directory: radio-air-PC/release/radio-walkie
         run: npx electron-builder --win --publish never
 
-      # ───────── Теги релизов из версий ─────────
+      # ───────── Теги релизов из версии станции (рация = та же версия + -walkie.0) ─────────
       - name: Release tags
         id: tags
         run: |
-          echo "station=v$(node -p "require('./radio-air-PC/desktop/package.json').version")" >> "$GITHUB_OUTPUT"
-          echo "walkie=v$(node -p "require('./radio-air-PC/release/radio-walkie/package.json').version")" >> "$GITHUB_OUTPUT"
+          ver=$(node -p "require('./radio-air-PC/desktop/package.json').version")
+          echo "station=v${ver}" >> "$GITHUB_OUTPUT"
+          echo "walkie=v${ver}-walkie.0" >> "$GITHUB_OUTPUT"
 
       # ───────── Сбор файлов по двум релизам ─────────
       - name: Collect files
@@ -80,7 +95,7 @@ jobs:
           cp radio-air-PC/release/radio-walkie/dist/*.exe radio-air-PC/release/radio-walkie/dist/*.exe.blockmap radio-air-PC/release/radio-walkie/dist/walkie.yml out-walkie/ 2>/dev/null || true
           echo "── станция ──"; ls -la out-station; echo "── рация ──"; ls -la out-walkie
 
-      # ───────── Публикация: два отдельных релиза (черновик → опубликовать) ─────────
+      # ───────── Публикация: два отдельных релиза, каждый по своему выбору (черновик → опубликовать) ─────────
       - name: Publish releases
         if: env.PUBLISH == 'yes'
         env:
@@ -89,20 +104,26 @@ jobs:
           st='${{ steps.tags.outputs.station }}'
           wk='${{ steps.tags.outputs.walkie }}'
           repo="$GITHUB_REPOSITORY"
-          # Чистим прошлые/битые релизы этих версий и старый совместный (immutable-релизы можно удалять)
-          for t in "$st" "$wk" v0.2.0 v0.2.1 v0.2.2; do gh release delete "$t" --repo "$repo" --yes --cleanup-tag || true; done
-          # Станция — обычный релиз (latest)
-          gh release create "$st" --repo "$repo" --target "$GITHUB_SHA" \
-            --title "Радио ${st#v}" \
-            --notes "Станция «Радио» для Windows (в неё встроена и рация). Обновляется сама." \
-            --draft out-station/*
-          gh release edit "$st" --repo "$repo" --draft=false --latest
-          # Рация — отдельный релиз своего канала (pre-release, чтобы не мешать треку станции)
-          gh release create "$wk" --repo "$repo" --target "$GITHUB_SHA" \
-            --title "Рация ${wk#v}" \
-            --notes "Отдельная «Рация» для Windows (виджет на рабочий стол). Обновляется сама, отдельно от станции." \
-            --prerelease --draft out-walkie/*
-          gh release edit "$wk" --repo "$repo" --draft=false --prerelease
+          # Разовая чистка старых битых совместных релизов (immutable-релизы можно удалять)
+          for t in v0.2.0 v0.2.1 v0.2.2; do gh release delete "$t" --repo "$repo" --yes --cleanup-tag || true; done
+          if [ "$TARGET" != walkie ]; then
+            # Станция — обычный релиз (latest)
+            gh release delete "$st" --repo "$repo" --yes --cleanup-tag || true
+            gh release create "$st" --repo "$repo" --target "$GITHUB_SHA" \
+              --title "Радио ${st#v}" \
+              --notes "Станция «Радио» для Windows (в неё встроена и рация). Обновляется сама." \
+              --draft out-station/*
+            gh release edit "$st" --repo "$repo" --draft=false --latest
+          fi
+          if [ "$TARGET" != station ]; then
+            # Рация — отдельный релиз своего канала (pre-release, чтобы не мешать треку станции)
+            gh release delete "$wk" --repo "$repo" --yes --cleanup-tag || true
+            gh release create "$wk" --repo "$repo" --target "$GITHUB_SHA" \
+              --title "Рация ${wk#v}" \
+              --notes "Отдельная «Рация» для Windows (виджет на рабочий стол). Обновляется сама, отдельно от станции." \
+              --prerelease --draft out-walkie/*
+            gh release edit "$wk" --repo "$repo" --draft=false --prerelease
+          fi
 
       # ───────── Артефакты (для ручного запуска без публикации) ─────────
       - name: Upload installers
