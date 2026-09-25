@@ -1,9 +1,12 @@
 name: PC apps (Радио + Рация)
 
 # Собирает установщики «Радио» (станция + рация) и «Рация» (отдельный виджет) для Windows
-# из radio-air-PC. По тегу vX.Y.Z — публикует их в релиз GitHub (electron-builder --publish always),
-# откуда потом обновляется electron-updater: «Радио» по latest.yml, «Рация» по walkie.yml.
-# Запуск вручную (workflow_dispatch) — только собирает и кладёт .exe в артефакты, без публикации.
+# из radio-air-PC. По тегу vX.Y.Z или ручному запуску с галочкой publish — публикует их в один
+# релиз GitHub, откуда обновляется electron-updater: «Радио» по latest.yml, «Рация» по walkie.yml.
+#
+# Файлы (оба .exe, их .blockmap и манифесты latest.yml/walkie.yml) electron-builder кладёт в dist,
+# а заливаем их одним gh-релизом (сначала черновик — он изменяемый, потом публикуем): так надёжнее,
+# чем две отдельные публикации electron-builder в один релиз (теряются файлы из-за immutable releases).
 
 on:
   push:
@@ -26,9 +29,7 @@ jobs:
       run:
         shell: bash
     env:
-      # Публикуем по тегу или по ручному запуску с галочкой publish. electron-builder сам создаёт
-      # релиз и тег vX.Y.Z из версии в package.json (токен Actions это умеет, в отличие от git-пуша тега).
-      PUBLISH: ${{ (startsWith(github.ref, 'refs/tags/') || inputs.publish) && 'always' || 'never' }}
+      PUBLISH: ${{ (startsWith(github.ref, 'refs/tags/') || inputs.publish) && 'yes' || 'no' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,33 +44,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Версия релиза = версия «Радио» из package.json (тег vX.Y.Z)
       - name: Release tag
         id: rel
         run: echo "tag=v$(node -p "require('./radio-air-PC/desktop/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # Убираем возможный застрявший релиз/тег этой версии — иначе новый черновик не собрать
-      - name: Clean previous release
-        if: env.PUBLISH == 'always'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete "${{ steps.rel.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          # Пустой застрявший релиз без файлов (если остался от прошлой неудачной публикации)
-          gh release delete v0.2.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-
-      # ───────── «Радио» (полное приложение: станция + рация) ─────────
+      # ───────── Сборка (без публикации; electron-builder всё равно пишет latest.yml/walkie.yml) ─────────
       - name: Install deps (Радио)
         working-directory: radio-air-PC/desktop
         run: npm ci --no-audit --no-fund
 
       - name: Build Радио
         working-directory: radio-air-PC/desktop
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish "$PUBLISH"
+        run: npx electron-builder --win --publish never
 
-      # ───────── «Рация» (отдельное приложение, только виджет) ─────────
       - name: Stage Рация sources
         working-directory: radio-air-PC
         run: python pack_walkie.py
@@ -80,23 +67,37 @@ jobs:
 
       - name: Build Рация
         working-directory: radio-air-PC/release/radio-walkie
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish "$PUBLISH"
+        run: npx electron-builder --win --publish never
 
-      # Черновик с обоими установщиками и манифестами собран — публикуем его
+      # ───────── Сбор файлов релиза ─────────
+      - name: Collect files
+        id: collect
+        run: |
+          mkdir -p out
+          cp radio-air-PC/desktop/dist/*.exe radio-air-PC/desktop/dist/*.exe.blockmap radio-air-PC/desktop/dist/latest.yml out/ 2>/dev/null || true
+          cp radio-air-PC/release/radio-walkie/dist/*.exe radio-air-PC/release/radio-walkie/dist/*.exe.blockmap radio-air-PC/release/radio-walkie/dist/walkie.yml out/ 2>/dev/null || true
+          echo "── файлы релиза ──"; ls -la out
+
+      # ───────── Публикация одним релизом (черновик → опубликовать) ─────────
       - name: Publish release
-        if: env.PUBLISH == 'always'
+        if: env.PUBLISH == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ steps.rel.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        run: |
+          tag='${{ steps.rel.outputs.tag }}'
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          # Убираем битые релизы прошлых попыток (пустой v0.2.0 и неполный v0.2.1)
+          for old in v0.2.0 v0.2.1; do gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true; done
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Радио и Рация ${tag#v}" \
+            --notes "Установщики для Windows. «Радио» — станция + рация, «Рация» — отдельный виджет. Обновляются сами из этого репозитория." \
+            --draft out/*
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
       # ───────── Артефакты (для ручного запуска без публикации) ─────────
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: pc-installers
-          path: |
-            radio-air-PC/desktop/dist/*.exe
-            radio-air-PC/release/radio-walkie/dist/*.exe
+          path: out/*.exe
           if-no-files-found: warn
