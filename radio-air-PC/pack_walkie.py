@@ -28,6 +28,11 @@ NAME = 'radio-walkie'
 TITLE = 'Рация'
 
 # Что входит в рацию: куда положить ← откуда взять
+FONTS = ['pt-mono-latin-400-normal.woff2', 'pt-mono-cyrillic-400-normal.woff2',
+         'jura-latin-700-normal.woff2', 'jura-cyrillic-700-normal.woff2',
+         'russo-one-latin-400-normal.woff2', 'russo-one-cyrillic-400-normal.woff2',
+         'DSEG7Classic-Bold.woff2', 'LICENSE-FONTS.txt']
+
 FILES = {
     'main.js': DESKTOP / 'main.js',
     'preload.js': DESKTOP / 'preload.js',
@@ -38,14 +43,26 @@ FILES = {
     'README.md': DESKTOP / 'walkie-README.md',
     'web/widget.html': ROOT / 'widget.html',
     'web/css/widget.css': ROOT / 'css' / 'widget.css',
+    'web/css/look.css': ROOT / 'css' / 'look.css',
+    'web/css/panel.css': ROOT / 'css' / 'panel.css',
     'web/js/audio-kit.js': ROOT / 'js' / 'audio-kit.js',
     'web/js/stations.js': ROOT / 'js' / 'stations.js',
     'web/js/engine.js': ROOT / 'js' / 'engine.js',
+    'web/js/codec.js': ROOT / 'js' / 'codec.js',
     'web/js/crypto.js': ROOT / 'js' / 'crypto.js',
     'web/js/live.js': ROOT / 'js' / 'live.js',
     'web/js/link.js': ROOT / 'js' / 'link.js',
+    'web/js/look.js': ROOT / 'js' / 'look.js',
+    'web/js/privacy.js': ROOT / 'js' / 'privacy.js',
     'web/js/widget.js': ROOT / 'js' / 'widget.js',
+    'web/js/voice.js': ROOT / 'js' / 'voice.js',
+    'web/js/voice-worklet.js': ROOT / 'js' / 'voice-worklet.js',
+    'web/js/channel.js': ROOT / 'js' / 'channel.js',
+    'web/js/changelog.js': ROOT / 'js' / 'changelog.js',
+    'web/js/updater-ui.js': ROOT / 'js' / 'updater-ui.js',
+    'web/js/pc-panel.js': ROOT / 'js' / 'pc-panel.js',
     'web/js/worklets/capture.js': ROOT / 'js' / 'worklets' / 'capture.js',
+    **{f'web/fonts/{name}': ROOT / 'fonts' / name for name in FONTS},
 }
 
 GITIGNORE = 'node_modules/\ndist/\n'
@@ -100,6 +117,9 @@ def package_json():
         'build': {
             'appId': 'ru.radio.walkie',
             'productName': TITLE,
+            # Свой канал обновлений: «Рация» и «Радио» лежат в одних релизах, но манифесты разные
+            # (walkie.yml и latest.yml) — приложения не путают версии друг друга.
+            'publish': [{'provider': 'github', 'owner': 'BuninSil', 'repo': 'Walkie-Walkie', 'channel': 'walkie', 'releaseType': 'release'}],
             'directories': build['directories'],
             'files': build['files'],
             'extraResources': [{'from': 'web', 'to': 'web'}],
@@ -164,7 +184,7 @@ def scan(files, base=OUT):
         path = base / rel
         if SECRET_NAMES.search(path.name):
             problems.append(f'{rel} — такой файл не должен попадать в архив')
-        if path.suffix in ('.ico', '.png'):
+        if path.suffix in ('.ico', '.png', '.woff2'):
             continue
         text = path.read_text(encoding='utf-8')
         for n, line in enumerate(text.splitlines(), 1):

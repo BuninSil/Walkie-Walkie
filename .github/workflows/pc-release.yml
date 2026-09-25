@@ -1,0 +1,73 @@
+name: PC apps (Радио + Рация)
+
+# Собирает установщики «Радио» (станция + рация) и «Рация» (отдельный виджет) для Windows
+# из radio-air-PC. По тегу vX.Y.Z — публикует их в релиз GitHub (electron-builder --publish always),
+# откуда потом обновляется electron-updater: «Радио» по latest.yml, «Рация» по walkie.yml.
+# Запуск вручную (workflow_dispatch) — только собирает и кладёт .exe в артефакты, без публикации.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      PUBLISH: ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ───────── «Радио» (полное приложение: станция + рация) ─────────
+      - name: Install deps (Радио)
+        working-directory: radio-air-PC/desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Радио
+        working-directory: radio-air-PC/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish "$PUBLISH"
+
+      # ───────── «Рация» (отдельное приложение, только виджет) ─────────
+      - name: Stage Рация sources
+        working-directory: radio-air-PC
+        run: python pack_walkie.py
+
+      - name: Install deps (Рация)
+        working-directory: radio-air-PC/release/radio-walkie
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Рация
+        working-directory: radio-air-PC/release/radio-walkie
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish "$PUBLISH"
+
+      # ───────── Артефакты (для ручного запуска без публикации) ─────────
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-installers
+          path: |
+            radio-air-PC/desktop/dist/*.exe
+            radio-air-PC/release/radio-walkie/dist/*.exe
+          if-no-files-found: warn

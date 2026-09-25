@@ -76,6 +76,7 @@ let prefs = {
   widget: { onTop: false },
   bar: { opacity: 0.92, clickThrough: false },
   hotkeys: { bindings: { ...DEFAULTS }, pttMode: 'hold' },
+  autoUpdate: true, // тихо качать и ставить обновления из релизов GitHub
 };
 
 function validCombo(c) {
@@ -100,6 +101,7 @@ function loadPrefs() {
         clickThrough: Boolean(data.bar?.clickThrough),
       },
       hotkeys: { bindings, pttMode: data.hotkeys?.pttMode === 'toggle' ? 'toggle' : 'hold' },
+      autoUpdate: data.autoUpdate !== false,
     };
   } catch {
     /* первый запуск — настройки по умолчанию */
@@ -425,6 +427,58 @@ ipcMain.handle('hotkeys:simulate', (_e, action, phase) => Boolean(process.env.RA
 
 // ───────── Жизненный цикл ─────────
 
+/* ───────── Автообновление из релизов GitHub (electron-updater) ─────────
+ * Тихо проверяет релизы репозитория при запуске и раз в час, качает новую версию в фоне и
+ * ставит при выходе (или сразу — по кнопке на странице). «Радио» и «Рация» лежат в одних
+ * релизах, но у каждой свой файл-манифест (канал): latest.yml и walkie.yml — не мешают друг другу.
+ */
+let updaterState = { state: app.isPackaged ? 'idle' : 'dev', version: app.getVersion(), percent: 0, message: null };
+let autoUpdater = null;
+
+function sendUpdater() {
+  win?.webContents?.send('updater:status', updaterState);
+}
+
+function setupUpdater() {
+  if (!app.isPackaged) return; // автообновление — только в установленном приложении
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    return; // модуль не собрался — работаем без автообновления
+  }
+  if (WALKIE_ONLY) autoUpdater.channel = 'walkie'; // свой манифест у «Рации»
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => { updaterState = { state: 'checking', version: app.getVersion(), percent: 0, message: null }; sendUpdater(); });
+  autoUpdater.on('update-available', (info) => { updaterState = { state: 'downloading', version: info?.version || null, percent: 0, message: null }; sendUpdater(); });
+  autoUpdater.on('update-not-available', () => { updaterState = { state: 'none', version: app.getVersion(), percent: 0, message: null }; sendUpdater(); });
+  autoUpdater.on('download-progress', (p) => { updaterState = { state: 'downloading', version: updaterState.version, percent: Math.round(p?.percent || 0), message: null }; sendUpdater(); });
+  autoUpdater.on('update-downloaded', (info) => { updaterState = { state: 'ready', version: info?.version || null, percent: 100, message: null }; sendUpdater(); });
+  autoUpdater.on('error', (err) => { updaterState = { state: 'error', version: null, percent: 0, message: String(err?.message || err) }; sendUpdater(); });
+  const check = () => { if (prefs.autoUpdate !== false) autoUpdater.checkForUpdates().catch(() => {}); };
+  setTimeout(check, 4000);
+  setInterval(check, 60 * 60 * 1000);
+}
+
+ipcMain.handle('updater:get', () => updaterState);
+ipcMain.handle('updater:check', () => {
+  if (autoUpdater) autoUpdater.checkForUpdates().catch(() => {});
+  return updaterState;
+});
+ipcMain.handle('updater:install', () => {
+  // Ставим сразу: закрыть и установить. Страница разрешает кнопку только когда не в эфире.
+  if (autoUpdater && updaterState.state === 'ready') autoUpdater.quitAndInstall(false, true);
+  return updaterState;
+});
+ipcMain.handle('updater:auto', (_e, on) => {
+  prefs.autoUpdate = Boolean(on);
+  savePrefs();
+  if (prefs.autoUpdate && autoUpdater) autoUpdater.checkForUpdates().catch(() => {});
+  return prefs.autoUpdate;
+});
+ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.handle('app:auto-update', () => prefs.autoUpdate !== false);
+
 app.on('second-instance', () => {
   if (!win) return;
   if (win.isMinimized()) win.restore();
@@ -436,7 +490,7 @@ app.whenReady().then(() => {
     const rel = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '') || PAGES[0];
     const file = path.resolve(WEB_ROOT, rel);
     const resolved = path.relative(WEB_ROOT, file).split(path.sep).join('/');
-    const allowed = PAGES.includes(resolved) || /^(css|js)\//.test(resolved);
+    const allowed = PAGES.includes(resolved) || /^(css|js|fonts)\//.test(resolved);
     if (!allowed || !file.startsWith(WEB_ROOT + path.sep)) return new Response('Not Found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
@@ -452,6 +506,7 @@ app.whenReady().then(() => {
   hotkeys.configure(prefs.hotkeys);
   hotkeys.start();
   openWindow(process.argv.includes('--widget') ? 'widget' : prefs.mode);
+  setupUpdater();
 });
 
 app.on('window-all-closed', () => app.quit());

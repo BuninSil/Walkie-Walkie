@@ -139,6 +139,36 @@
     // Обновления
     const upd = el('section', 'wk-sec');
     upd.append(el('h3', null, 'Обновления'));
+    // Автообновление из релизов GitHub — только в установленном приложении (Electron)
+    const u = window.RadioUpdater;
+    if (window.radioDesktop?.onUpdaterStatus && u) {
+      const st = u.get();
+      const map = { checking: 'проверяю…', downloading: `загрузка ${st.percent || 0}%`, ready: `обновление ${st.version || ''} готово`, none: 'установлена последняя версия', error: 'не удалось проверить', idle: '' };
+      const status = map[st.state] || '';
+      const row = el('div', 'pv-item');
+      const head = el('div', 'pv-item__head');
+      head.append(el('span', null, 'Автообновление'), el('b', 'pv-value', u.auto ? 'вкл' : 'выкл'));
+      row.append(head);
+      if (status) row.append(el('small', 'pv-hint', status));
+      const btns = el('div', 'pv-btns');
+      const toggle = el('button', 'pv-btn', u.auto ? 'Выключить авто' : 'Включить авто');
+      toggle.type = 'button';
+      toggle.addEventListener('click', async () => { await u.setAuto(!u.auto); rerender(); });
+      btns.append(toggle);
+      if (st.state === 'ready') {
+        const install = el('button', 'pv-btn pv-btn--main', 'Установить сейчас');
+        install.type = 'button';
+        install.addEventListener('click', () => u.install());
+        btns.append(install);
+      } else {
+        const check = el('button', 'pv-btn', 'Проверить сейчас');
+        check.type = 'button';
+        check.addEventListener('click', () => { u.check(); setTimeout(rerender, 500); });
+        btns.append(check);
+      }
+      row.append(btns);
+      upd.append(row);
+    }
     const hist = el('button', 'wk-btn wk-btn--wide', '📋  История изменений');
     hist.type = 'button';
     hist.addEventListener('click', openChangelog);
@@ -239,6 +269,8 @@
     setInterval(addGear, 1500);
     setupConnError();
     setTimeout(whatsNew, 1200);
+    // Пока панель открыта — обновляем раздел «Обновления» вслед за состоянием загрузки
+    window.RadioUpdater?.onChange(() => rerender());
   });
 
   window.WalkiePanel = { open: () => toggle(true), openChangelog };

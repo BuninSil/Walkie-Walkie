@@ -204,10 +204,12 @@
       <article class="panel">
         <h2>Обновления <span class="muted" id="upd-ver"></span></h2>
         <div class="btn-row">
+          <button class="btn" id="upd-auto" type="button" aria-pressed="true">✓ Обновлять автоматически</button>
+          <button class="btn" id="upd-check" type="button">Проверить сейчас</button>
           <button class="btn" id="upd-log" type="button">📋 История изменений</button>
           <button class="btn" id="upd-look" type="button">🎨 Внешний вид</button>
         </div>
-        <p class="hint">Что нового — показывается после обновления. Внешний вид станции меняется в редакторе (кнопка 🎨 наверху): темы, дисплей, цвета, фон, шрифты.</p>
+        <p class="hint">Новые версии берутся из релизов GitHub и ставятся, когда станция не в эфире (или сразу — по кнопке, когда обновление скачано). Внешний вид станции меняется в редакторе (кнопка 🎨 наверху): темы, дисплей, цвета, фон, шрифты.</p>
       </article>
     </section>
 
@@ -232,6 +234,7 @@
   <script src="js/morse-decoder.js"></script>
   <script src="js/changelog.js"></script>
   <script src="js/station-updates.js"></script>
+  <script src="js/updater-ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

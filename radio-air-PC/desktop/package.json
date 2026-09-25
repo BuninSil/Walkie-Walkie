@@ -13,6 +13,14 @@
   "build": {
     "appId": "ru.radio.air",
     "productName": "Радио",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "BuninSil",
+        "repo": "Walkie-Walkie",
+        "releaseType": "release"
+      }
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -64,6 +72,7 @@
     "npmRebuild": false
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.21.3"
   },

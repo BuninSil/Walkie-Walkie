@@ -7,13 +7,13 @@
 
 /* ───────── Шрифты (OFL, см. fonts/LICENSE-FONTS.txt) ───────── */
 
-@font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
-@font-face { font-family: 'WK Mono'; src: url(fonts/pt-mono-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'WK Techno'; src: url(fonts/jura-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
-@font-face { font-family: 'WK Techno'; src: url(fonts/jura-cyrillic-700-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
-@font-face { font-family: 'WK Heavy'; src: url(fonts/russo-one-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'WK Seg7'; src: url(fonts/DSEG7Classic-Bold.woff2) format('woff2'); }
+@font-face { font-family: 'WK Mono'; src: url(../fonts/pt-mono-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Mono'; src: url(../fonts/pt-mono-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Techno'; src: url(../fonts/jura-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Techno'; src: url(../fonts/jura-cyrillic-700-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Heavy'; src: url(../fonts/russo-one-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF, U+25A0-25FF; }
+@font-face { font-family: 'WK Heavy'; src: url(../fonts/russo-one-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'WK Seg7'; src: url(../fonts/DSEG7Classic-Bold.woff2) format('woff2'); }
 
 /* Шрифт экрана — через переменную рации --lcd-font; крупные строки масштабируются под шрифт */
 .lcd { font-family: var(--lcd-font) !important; }

@@ -32,4 +32,15 @@ contextBridge.exposeInMainWorld('radioDesktop', {
   setOnTop: (on) => ipcRenderer.invoke('window:on-top', on),
   minimize: () => ipcRenderer.invoke('window:minimize'),
   quit: () => ipcRenderer.invoke('window:close'),
+
+  // Автообновление из релизов GitHub
+  onUpdaterStatus: (callback) => {
+    ipcRenderer.on('updater:status', (_e, state) => callback(state));
+  },
+  updaterGet: () => ipcRenderer.invoke('updater:get'),
+  updaterCheck: () => ipcRenderer.invoke('updater:check'),
+  updaterInstall: () => ipcRenderer.invoke('updater:install'),
+  setAutoUpdate: (on) => ipcRenderer.invoke('updater:auto', on),
+  autoUpdate: () => ipcRenderer.invoke('app:auto-update'),
+  appVersion: () => ipcRenderer.invoke('app:version'),
 });
