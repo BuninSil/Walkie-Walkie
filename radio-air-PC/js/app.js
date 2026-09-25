@@ -801,16 +801,18 @@
   };
   let sealing = Promise.resolve();
 
-  // С ключом звук шифруется до отправки. Если шифрование не удалось, пакет пропадает,
-  // но в открытом виде никогда не уходит.
+  // Звук сжимается (ADPCM, ~4x меньше) — держит связь на слабой сети; seq для восстановления потерь
+  let txSeq = 0;
   function transmit(pcm) {
+    const seq = (txSeq = (txSeq + 1) & 0xff);
+    const adpcm = adpcmEncode(new Int16Array(pcm));
     const entry = broadcast.key;
     if (!entry) {
-      link.sendAudio(openPacket(pcm));
+      link.sendAudio(openPacketC(adpcm, seq));
       return;
     }
     sealing = sealing
-      .then(() => sealPacket(entry, pcm))
+      .then(() => sealPacketC(entry, adpcm, seq))
       .then((packet) => link.sendAudio(packet))
       .catch(() => {});
   }

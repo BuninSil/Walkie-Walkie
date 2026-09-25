@@ -392,16 +392,19 @@
     if (cfg.scr.trim().toUpperCase() === phrase) txKey = entry; // пока считали, ключ могли сменить
   }
 
-  // С ключом звук шифруется до отправки; пока ключ считается — пакет пропадает, но открыто не уходит
+  // Звук сжимается (ADPCM, ~4x меньше) — держит связь на слабой сети; seq для восстановления потерь
+  let txSeq = 0;
   function transmit(pcm) {
+    const seq = (txSeq = (txSeq + 1) & 0xff);
+    const adpcm = adpcmEncode(new Int16Array(pcm));
     if (!cfg.scr) {
-      link.sendAudio(openPacket(pcm));
+      link.sendAudio(openPacketC(adpcm, seq));
       return;
     }
     const entry = txKey;
     if (!entry) return;
     sealing = sealing
-      .then(() => sealPacket(entry, pcm))
+      .then(() => sealPacketC(entry, adpcm, seq))
       .then((packet) => link.sendAudio(packet))
       .catch(() => {});
   }

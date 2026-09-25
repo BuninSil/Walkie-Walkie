@@ -6,7 +6,9 @@
 
 const LIVE_RATE = 16000;   // частота дискретизации живого эфира, Гц
 const LIVE_CHUNK = 640;    // сэмплов в одном пакете — 40 мс
-const LIVE_JITTER = 0.15;  // запас на неровную доставку по сети, с
+const LIVE_JITTER = 0.12;      // запас на неровную доставку, с — минимум (на хорошей сети)
+const LIVE_JITTER_MAX = 0.7;   // на плохой сети буфер сам растёт до этого, чтобы пережить рывки
+const LIVE_MAX_LAG = 0.45;     // задержка выросла больше буфера — пересинхронизация, чтобы не копилась
 
 // Без ключа шифротекст звучит как цифровая рация: байты модулируются четырьмя тонами (4FSK)
 const FSK4_TONES = [900, 1500, 2100, 2700];
@@ -22,6 +24,10 @@ class LiveStation extends Station {
     this.lastChunk = -Infinity;
     this.playhead = 0;
     this.fskPhase = 0;
+    this.jitter = LIVE_JITTER; // подстраивается под сеть: хуже связь — больше буфер
+    this.good = 0;
+    this.lastFrame = null;     // последний расшифрованный кадр — для маскировки потерь
+    this.lastSeq = undefined;  // номер последнего пакета
     this.update(info);
   }
 
@@ -45,19 +51,36 @@ class LiveStation extends Station {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running' || packet.length < 2) return;
     this.lastChunk = ctx.currentTime;
+    const type = packet[0];
+    const seq = packet[1];
 
-    if (packet[0] === PACKET_OPEN) {
+    // Открытый звук: несжатый (со станции) или сжатый ADPCM (с раций)
+    if (type === PACKET_OPEN || type === PACKET_OPEN_C) {
       this.encrypted = false;
-      const pcm = new Int16Array(packet.buffer, packet.byteOffset + 2, (packet.length - 2) >> 1);
-      this.play(pcmToFloat(pcm), this.reserve(pcm.length));
+      let frame;
+      if (type === PACKET_OPEN) {
+        const pcm = new Int16Array(packet.buffer, packet.byteOffset + 2, (packet.length - 2) >> 1);
+        frame = pcmToFloat(pcm);
+      } else {
+        const body = packet.subarray(2);
+        frame = adpcmDecode(body, adpcmSamples(body.length));
+      }
+      this.conceal(seq);
+      this.lastFrame = frame;
+      this.play(frame, this.reserve(frame.length));
       return;
     }
-    if (packet[0] !== PACKET_SEALED || packet.length <= SEALED_HEAD + 16) return;
+
+    const sealed = type === PACKET_SEALED;
+    const sealedC = type === PACKET_SEALED_C;
+    if ((!sealed && !sealedC) || packet.length <= SEALED_HEAD + 16) return;
 
     this.encrypted = true;
     const cipher = packet.subarray(SEALED_HEAD);
-    const samples = (cipher.length - 16) >> 1;
+    const plainLen = cipher.length - 16;
+    const samples = sealed ? plainLen >> 1 : adpcmSamples(plainLen);
     // Место в очереди занимаем сразу: расшифровка асинхронная, а порядок важен
+    this.conceal(seq);
     const when = this.reserve(samples);
     const entry = keyring.find(packet.subarray(2, 10));
     if (!entry) {
@@ -66,9 +89,11 @@ class LiveStation extends Station {
       return;
     }
     unsealPacket(entry, packet).then(
-      (pcm) => {
+      (buf) => {
         this.decrypted = true;
-        this.play(pcmToFloat(new Int16Array(pcm)), when);
+        const frame = sealed ? pcmToFloat(new Int16Array(buf)) : adpcmDecode(new Uint8Array(buf), adpcmSamples(buf.byteLength));
+        this.lastFrame = frame;
+        this.play(frame, when);
       },
       () => {
         this.decrypted = false;
@@ -77,10 +102,44 @@ class LiveStation extends Station {
     );
   }
 
-  // Время начала следующего куска. Буфер опустел или слишком отстал — начинаем с небольшим запасом
+  // Пропущены пакеты (по номеру seq) — заполняем дыру затухающим повтором последнего кадра,
+  // чтобы вместо щелчка/провала был плавный «хвост». Работает только когда отправитель шлёт seq.
+  conceal(seq) {
+    if (typeof this.lastSeq === 'number' && this.lastFrame) {
+      const gap = (seq - this.lastSeq - 1) & 0xff;
+      if (gap > 0 && gap <= 5) {
+        for (let k = 0; k < gap; k++) {
+          const g = 0.7 ** (k + 1);
+          const f = new Float32Array(this.lastFrame.length);
+          for (let i = 0; i < f.length; i++) f[i] = this.lastFrame[i] * g;
+          this.play(f, this.reserve(f.length));
+        }
+      }
+    }
+    this.lastSeq = seq;
+  }
+
+  // Время начала следующего куска. Держим ровную очередь: при недоборе (буфер опустел) или
+  // при накоплении задержки — пересинхронизируемся, оборвав хвост, иначе звук наложился бы (эхо).
   reserve(samples) {
     const now = this.ctx.currentTime;
-    if (this.playhead < now || this.playhead > now + 1) this.playhead = now + LIVE_JITTER;
+    let j = this.jitter;
+    if (this.playhead < now) {
+      // Недобор: сеть провалилась — растим буфер, чтобы пережить следующие рывки
+      j = Math.min(LIVE_JITTER_MAX, j * 1.5 + 0.05);
+      this.jitter = j;
+      this.good = 0;
+      this.flushScheduled();
+      this.playhead = now + j;
+    } else if (this.playhead > now + j + LIVE_MAX_LAG) {
+      // Задержка накопилась сверх буфера — пересинхронизируемся, оборвав хвост
+      this.flushScheduled();
+      this.playhead = now + j;
+    } else if (++this.good > 150) {
+      // Долго стабильно — потихоньку ужимаем задержку обратно к минимуму
+      this.good = 0;
+      this.jitter = Math.max(LIVE_JITTER, j * 0.85);
+    }
     const when = this.playhead;
     this.playhead += samples / LIVE_RATE;
     return when;
@@ -95,6 +154,25 @@ class LiveStation extends Station {
     src.buffer = buf;
     src.connect(this.output);
     src.start(Math.max(when, ctx.currentTime));
+    // Помним запланированные куски, чтобы при пересинхронизации оборвать «хвост» и не было эха
+    (this.scheduled ??= []).push(src);
+    src.onended = () => {
+      const i = this.scheduled.indexOf(src);
+      if (i >= 0) this.scheduled.splice(i, 1);
+    };
+  }
+
+  // Пересинхронизация: обрываем ещё не доигранные куски, чтобы новый звук не наложился на старый
+  flushScheduled() {
+    for (const src of this.scheduled ?? []) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {
+        /* уже остановлен */
+      }
+    }
+    this.scheduled = [];
   }
 
   // Шифротекст → 4FSK: каждые два бита выбирают один из четырёх тонов
