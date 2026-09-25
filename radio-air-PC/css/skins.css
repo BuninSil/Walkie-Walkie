@@ -94,6 +94,15 @@ html:root[data-skin] .key__alt {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
+/* Снежный (арктика) — светло-серый камуфляж кнопок с белыми пятнами: белые цифры теряются.
+   Делаем тёмные цифры с плотным белым ореолом — читаются и на светлых, и на тёмных пятнах.
+   Боковые PTT/MON/☼ на тёмных кнопках не трогаем. Оранжевые F-подписи оставляем как есть. */
+html:root[data-skin="arctic"] .key__main {
+  color: #1b1d21;
+  text-shadow: 0 0 2px #fff, 0 0 3px rgba(255, 255, 255, 0.85), 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+html:root[data-skin="arctic"] .key--f .key__main { color: var(--label-alt); }
+
 /* ───────── Боковые кнопки: PTT + две малые, чёрные с подписями ───────── */
 html:root[data-skin] .side {
   position: static;
