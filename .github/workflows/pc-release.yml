@@ -43,6 +43,21 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Версия релиза = версия «Радио» из package.json (тег vX.Y.Z)
+      - name: Release tag
+        id: rel
+        run: echo "tag=v$(node -p "require('./radio-air-PC/desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Убираем возможный застрявший релиз/тег этой версии — иначе новый черновик не собрать
+      - name: Clean previous release
+        if: env.PUBLISH == 'always'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ steps.rel.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          # Пустой застрявший релиз без файлов (если остался от прошлой неудачной публикации)
+          gh release delete v0.2.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+
       # ───────── «Радио» (полное приложение: станция + рация) ─────────
       - name: Install deps (Радио)
         working-directory: radio-air-PC/desktop
@@ -68,6 +83,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish "$PUBLISH"
+
+      # Черновик с обоими установщиками и манифестами собран — публикуем его
+      - name: Publish release
+        if: env.PUBLISH == 'always'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ steps.rel.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
       # ───────── Артефакты (для ручного запуска без публикации) ─────────
       - name: Upload installers

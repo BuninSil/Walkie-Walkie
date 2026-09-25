@@ -1,7 +1,7 @@
 {
   "name": "radio-air",
   "productName": "Радио",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Эмулятор радиоэфира: живые станции, рация, шифрование",
   "author": "Radio",
   "private": true,
@@ -18,7 +18,7 @@
         "provider": "github",
         "owner": "BuninSil",
         "repo": "Walkie-Walkie",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ],
     "directories": {
