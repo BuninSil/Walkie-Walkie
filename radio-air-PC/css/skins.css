@@ -46,10 +46,10 @@ html:root[data-skin] .keypad {
 /* ───────── Экран в вырезе ───────── */
 html:root[data-skin] .lcd {
   position: absolute;
-  left: 11.4%;
-  top: 31.4%;
-  width: 81.6%;
-  height: 30%;
+  left: 12.9%;
+  top: 32.5%;
+  width: 78.3%;
+  height: 28%;
   margin: 0;
   border-radius: 4px;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -82,12 +82,17 @@ html:root[data-skin] .key:nth-child(n + 5):nth-child(-n + 8) { top: 71.5%; }
 html:root[data-skin] .key:nth-child(n + 9):nth-child(-n + 12) { top: 79.8%; }
 html:root[data-skin] .key:nth-child(n + 13) { top: 87.95%; }
 
-/* Подписи поверх кнопок — чтобы номера и F-функции читались на рендере */
+/* Подписи поверх кнопок — чтобы номера и F-функции читались на рендере.
+   Цифру опускаем к центру кнопки (над ней — мелкая оранжевая F-подпись). */
 html:root[data-skin] .key__main {
-  margin-top: 0;
+  margin-top: 26%;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
-html:root[data-skin] .key__alt { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+html:root[data-skin] .key--side .key__main { margin-top: 0; }
+html:root[data-skin] .key__alt {
+  top: 12%;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
 
 /* ───────── Боковые кнопки: PTT + две малые, чёрные с подписями ───────── */
 html:root[data-skin] .side {
@@ -136,19 +141,14 @@ html:root[data-skin] .side__key span {
 }
 
 /* ───────── Ручка громкости ───────── */
-/* Крутилка — фоторендер (skins/<цвет>_knob.png). Кладём картинку прямо на .knob (неподвижную),
-   а не на вращающийся колпачок — иначе регулятор кривится при смене громкости. Сажаем на прилив
-   в правом верхнем плече корпуса, низ заводим на корпус, чтобы стоял ровно и без зазора. */
+/* Регулятор громкости — родной (как в других версиях: рифлёный, с оранжевой риской, крутится
+   от громкости) и лежит поверх камуфляжной текстуры. Меняем только место: сажаем на прилив в
+   правом верхнем плече корпуса. Вид (фон/колпачок/риска) — из widget.css, не трогаем. */
 html:root[data-skin] .knob {
   position: absolute;
-  left: 73.5%;
+  left: 75.5%;
   right: auto;
-  top: 6.5%;
-  width: 19%;
-  height: 11%;
-  border-radius: 0;
-  background: var(--skin-knob) center bottom / contain no-repeat;
-  box-shadow: none;
+  top: 8.8%;
+  width: 15%;
+  height: 10%;
 }
-html:root[data-skin] .knob__cap,
-html:root[data-skin] .knob__mark { display: none; }
