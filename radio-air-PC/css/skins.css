@@ -85,12 +85,12 @@ html:root[data-skin] .key:nth-child(n + 13) { top: 87.95%; }
 /* Подписи поверх кнопок — чтобы номера и F-функции читались на рендере.
    Цифру опускаем к центру кнопки (над ней — мелкая оранжевая F-подпись). */
 html:root[data-skin] .key__main {
-  margin-top: 38%;
+  margin-top: 32%;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 html:root[data-skin] .key--side .key__main { margin-top: 0; }
 html:root[data-skin] .key__alt {
-  top: 12%;
+  top: 30%;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
@@ -141,24 +141,19 @@ html:root[data-skin] .side__key span {
 }
 
 /* ───────── Ручка громкости ───────── */
-/* Регулятор громкости — родной колпачок с оранжевой риской (крутится от громкости), но БЕЗ
-   тёмной прямоугольной подложки: под ним и вокруг остаётся реалистичная камуфляжная текстура
-   корпуса. Сажаем круглую крутилку на правое верхнее плечо, поверх текстуры. */
+/* Регулятор громкости — фоторендер (skins/<цвет>_knob.png) на неподвижной основе (не косит от
+   громкости). Под ним и вокруг — реалистичная камуфляжная текстура корпуса. Центрируем по приливу
+   в правом верхнем плече (центр ≈83.5%), низ заводим на корпус — садится в выемку под регулятор. */
 html:root[data-skin] .knob {
   position: absolute;
-  left: 77.5%;
+  left: 74.5%;
   right: auto;
-  top: 9.5%;
-  width: 13%;
-  height: 7.3%; /* квадрат → колпачок круглый */
-  background: none;
+  top: 7.6%;
+  width: 18%;
+  height: 9.2%;
+  border-radius: 0;
+  background: var(--skin-knob) center bottom / contain no-repeat;
   box-shadow: none;
 }
-html:root[data-skin] .knob__cap {
-  inset: 0;
-  top: 0;
-  left: 0;
-  width: auto;
-  height: auto;
-  margin: 0;
-}
+html:root[data-skin] .knob__cap,
+html:root[data-skin] .knob__mark { display: none; }
