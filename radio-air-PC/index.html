@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/look-station.css">
 </head>
 <body>
   <main class="page">
@@ -19,6 +20,7 @@
           <span class="brand__model">эфир · прототип 0.1</span>
         </div>
         <div class="radio__actions">
+          <button class="look-btn" id="look-btn" type="button" title="Внешний вид: темы, дисплей, фон">🎨</button>
           <button class="power" id="to-widget" type="button" hidden title="Свернуть в рацию на рабочий стол">
             <span class="power__text">РАЦИЯ</span>
           </button>
@@ -198,6 +200,15 @@
         <ol class="log" id="log"></ol>
         <p class="hint" id="log-empty">Пока пусто. Станция попадает в журнал, если удержать её на шкале пару секунд. Любительские станции записываются с позывным и временем.</p>
       </article>
+
+      <article class="panel">
+        <h2>Обновления <span class="muted" id="upd-ver"></span></h2>
+        <div class="btn-row">
+          <button class="btn" id="upd-log" type="button">📋 История изменений</button>
+          <button class="btn" id="upd-look" type="button">🎨 Внешний вид</button>
+        </div>
+        <p class="hint">Что нового — показывается после обновления. Внешний вид станции меняется в редакторе (кнопка 🎨 наверху): темы, дисплей, цвета, фон, шрифты.</p>
+      </article>
     </section>
 
     <p class="help">
@@ -209,6 +220,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="js/look-station.js"></script>
   <script src="js/audio-kit.js"></script>
   <script src="js/stations.js"></script>
   <script src="js/engine.js"></script>
@@ -218,6 +230,8 @@
   <script src="js/live.js"></script>
   <script src="js/link.js"></script>
   <script src="js/morse-decoder.js"></script>
+  <script src="js/changelog.js"></script>
+  <script src="js/station-updates.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
