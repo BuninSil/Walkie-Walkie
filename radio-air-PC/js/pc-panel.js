@@ -143,7 +143,8 @@
     const u = window.RadioUpdater;
     if (window.radioDesktop?.onUpdaterStatus && u) {
       const st = u.get();
-      const map = { checking: 'проверяю…', downloading: `загрузка ${st.percent || 0}%`, ready: `обновление ${st.version || ''} готово`, none: 'установлена последняя версия', error: 'не удалось проверить', idle: '' };
+      const ver = String(st.version || '').replace(/-walkie\.\d+$/, '');
+      const map = { checking: 'проверяю…', downloading: `загрузка ${st.percent || 0}%`, ready: `обновление ${ver} готово`, none: 'установлена последняя версия', error: 'не удалось проверить', idle: '' };
       const status = map[st.state] || '';
       const row = el('div', 'pv-item');
       const head = el('div', 'pv-item__head');

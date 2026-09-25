@@ -99,6 +99,11 @@ def personal_patterns():
     return found
 
 
+def walkie_version(base):
+    """Версия рации: к версии станции добавляем предрелизный ярлык канала обновлений «walkie»."""
+    return base if '-walkie.' in base else f'{base}-walkie.0'
+
+
 def package_json():
     """package.json рации — на основе приложения «Радио», с другим именем и только нужными файлами."""
     src = json.loads((DESKTOP / 'package.json').read_text(encoding='utf-8'))
@@ -106,7 +111,9 @@ def package_json():
     return {
         'name': NAME,
         'productName': TITLE,
-        'version': src['version'],
+        # Свой предрелизный канал обновлений: версия рации = версия станции + «-walkie.0».
+        # electron-updater по этому суффиксу берёт релизы рации (walkie.yml), не путая со станцией.
+        'version': walkie_version(src['version']),
         'description': 'Рация для эфира «Радио»: каналы PMR/LPD, шифрование, полоска поверх игр',
         'author': src['author'],
         'private': True,
@@ -135,8 +142,10 @@ def package_json():
 def package_lock():
     """Те же версии пакетов, что у «Радио», — меняется только имя проекта."""
     lock = json.loads((DESKTOP / 'package-lock.json').read_text(encoding='utf-8'))
+    ver = walkie_version(lock.get('version', ''))
     lock['name'] = NAME
-    lock['packages'][''] = {**lock['packages'][''], 'name': NAME}
+    lock['version'] = ver
+    lock['packages'][''] = {**lock['packages'][''], 'name': NAME, 'version': ver}
     return lock
 
 

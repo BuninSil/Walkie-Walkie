@@ -22,6 +22,9 @@
 
   const emit = () => { for (const cb of listeners) { try { cb(state); } catch { /* пусто */ } } };
 
+  // Версию показываем без служебного ярлыка канала: 0.2.3-walkie.0 → 0.2.3
+  const cleanVer = (v) => String(v || '').replace(/-walkie\.\d+$/, '');
+
   /* ───────── Плашка снизу ───────── */
 
   let banner = null;
@@ -65,14 +68,14 @@
     banner.replaceChildren();
     const text = el('div', 'ru-upd__text');
     if (s === 'downloading') {
-      text.append(el('b', null, state.version ? `Загрузка обновления ${state.version}` : 'Загрузка обновления'),
+      text.append(el('b', null, state.version ? `Загрузка обновления ${cleanVer(state.version)}` : 'Загрузка обновления'),
         el('small', null, `${state.percent || 0}%`));
       banner.append(text);
       const bar = el('div', 'ru-upd__bar');
       bar.style.width = `${state.percent || 0}%`;
       banner.append(bar);
     } else {
-      text.append(el('b', null, state.version ? `Обновление ${state.version} готово` : 'Обновление готово'),
+      text.append(el('b', null, state.version ? `Обновление ${cleanVer(state.version)} готово` : 'Обновление готово'),
         el('small', null, busy() ? 'Идёт передача — установлю после' : 'Приложение перезапустится'));
       const go = el('button', 'ru-upd__go', 'Установить');
       go.type = 'button';
@@ -100,7 +103,7 @@
       if (ver) {
         const map = { checking: 'проверяю…', downloading: `загрузка ${state.percent || 0}%`, ready: 'готово к установке', none: 'актуальная версия', error: 'не удалось проверить' };
         const extra = map[state.state];
-        const v = state.version ? `версия ${state.version}` : '';
+        const v = state.version ? `версия ${cleanVer(state.version)}` : '';
         ver.textContent = [v, extra].filter(Boolean).join(' · ');
       }
     };

@@ -24,7 +24,21 @@
     haptics: true,
   };
 
-  const FINISHES = { matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина', desert: 'Камуфляж' };
+  const FINISHES = {
+    matte: 'Матовый', gloss: 'Глянец', metal: 'Металл', carbon: 'Карбон', rubber: 'Резина',
+    'camo-urban': 'Камуфляж город', 'camo-wood': 'Камуфляж лес', 'camo-desert': 'Камуфляж пустыня',
+    'camo-night': 'Камуфляж тёмный', 'camo-purple': 'Камуфляж фиолет', 'camo-red': 'Камуфляж красный',
+  };
+
+  // Камуфляжи: [база, пятно1, пятно2, пятно3, пятно4]. Наносятся на корпус и кнопки.
+  const CAMO = {
+    'camo-urban':  ['#7f858c', '#4b5158', '#2f343a', '#a7adb3', '#5f666d'],
+    'camo-wood':   ['#5c6438', '#39401f', '#7c6a3d', '#23281380', '#8a7d4a'],
+    'camo-desert': ['#b49b6d', '#6f5537', '#8f7350', '#e2d2b0', '#a2865c'],
+    'camo-night':  ['#3b3f45', '#191b1e', '#565b61', '#0e0f11', '#71767c'],
+    'camo-purple': ['#6a3fa0', '#38205f', '#9a6fd0', '#241040', '#b58fe0'],
+    'camo-red':    ['#8f2f27', '#4a1512', '#b8443a', '#2c0a09', '#c85a4e'],
+  };
   const ANTENNAS = { stock: 'Родная', flat: 'Плоская', long: 'Длинная', tele: 'Телескоп', stubby: 'Короткая', off: 'Без антенны' };
   const LCD_STYLES = {
     classic: 'Классика', dark: 'Тёмный', oled: 'OLED', crt: 'ЭЛТ', glass: 'Стекло', gradient: 'Градиент',
@@ -271,6 +285,16 @@
     v['--wk-ant-hi'] = shade(look.antennaColor, 0.25);
     v['--led-tx'] = look.ledTx;
     v['--led-rx'] = look.ledRx;
+
+    // Камуфляж корпуса и кнопок: палитра в переменные, узор рисует look.css
+    const camo = CAMO[look.finish];
+    if (camo) {
+      v['--camo-base'] = camo[0];
+      v['--camo-a'] = camo[1];
+      v['--camo-b'] = camo[2];
+      v['--camo-c'] = camo[3];
+      v['--camo-d'] = camo[4];
+    }
 
     // Экран: светлые стили — тёмные буквы на подсветке; тёмные — светящиеся буквы на чёрном
     const darkLcd = ['dark', 'oled', 'crt'].includes(look.lcdStyle);

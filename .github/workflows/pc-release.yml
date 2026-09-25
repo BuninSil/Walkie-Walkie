@@ -1,12 +1,12 @@
 name: PC apps (Радио + Рация)
 
 # Собирает установщики «Радио» (станция + рация) и «Рация» (отдельный виджет) для Windows
-# из radio-air-PC. По тегу vX.Y.Z или ручному запуску с галочкой publish — публикует их в один
-# релиз GitHub, откуда обновляется electron-updater: «Радио» по latest.yml, «Рация» по walkie.yml.
-#
-# Файлы (оба .exe, их .blockmap и манифесты latest.yml/walkie.yml) electron-builder кладёт в dist,
-# а заливаем их одним gh-релизом (сначала черновик — он изменяемый, потом публикуем): так надёжнее,
-# чем две отдельные публикации electron-builder в один релиз (теряются файлы из-за immutable releases).
+# из radio-air-PC и публикует их ДВУМЯ ОТДЕЛЬНЫМИ релизами — станция и рация обновляются независимо:
+#   • «Радио»  → релиз vX.Y.Z (обычный, latest), манифест latest.yml, канал по умолчанию.
+#   • «Рация» → релиз vX.Y.Z-walkie.0 (пометка pre-release), манифест walkie.yml, канал walkie.
+# electron-updater каждой программы берёт свой трек: станция — последний обычный релиз, рация —
+# последний релиз своего walkie-канала (см. allowPrerelease в main.js).
+# Ручной запуск (workflow_dispatch) с галочкой publish публикует; без неё — только сборка в артефакты.
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Опубликовать релиз (создаётся тег vX.Y.Z из версии в package.json)
+        description: Опубликовать релизы (создаются теги из версий в package.json)
         type: boolean
         default: false
 
@@ -44,10 +44,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Release tag
-        id: rel
-        run: echo "tag=v$(node -p "require('./radio-air-PC/desktop/package.json').version")" >> "$GITHUB_OUTPUT"
-
       # ───────── Сборка (без публикации; electron-builder всё равно пишет latest.yml/walkie.yml) ─────────
       - name: Install deps (Радио)
         working-directory: radio-air-PC/desktop
@@ -69,35 +65,51 @@ jobs:
         working-directory: radio-air-PC/release/radio-walkie
         run: npx electron-builder --win --publish never
 
-      # ───────── Сбор файлов релиза ─────────
-      - name: Collect files
-        id: collect
+      # ───────── Теги релизов из версий ─────────
+      - name: Release tags
+        id: tags
         run: |
-          mkdir -p out
-          cp radio-air-PC/desktop/dist/*.exe radio-air-PC/desktop/dist/*.exe.blockmap radio-air-PC/desktop/dist/latest.yml out/ 2>/dev/null || true
-          cp radio-air-PC/release/radio-walkie/dist/*.exe radio-air-PC/release/radio-walkie/dist/*.exe.blockmap radio-air-PC/release/radio-walkie/dist/walkie.yml out/ 2>/dev/null || true
-          echo "── файлы релиза ──"; ls -la out
+          echo "station=v$(node -p "require('./radio-air-PC/desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "walkie=v$(node -p "require('./radio-air-PC/release/radio-walkie/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # ───────── Публикация одним релизом (черновик → опубликовать) ─────────
-      - name: Publish release
+      # ───────── Сбор файлов по двум релизам ─────────
+      - name: Collect files
+        run: |
+          mkdir -p out-station out-walkie
+          cp radio-air-PC/desktop/dist/*.exe radio-air-PC/desktop/dist/*.exe.blockmap radio-air-PC/desktop/dist/latest.yml out-station/ 2>/dev/null || true
+          cp radio-air-PC/release/radio-walkie/dist/*.exe radio-air-PC/release/radio-walkie/dist/*.exe.blockmap radio-air-PC/release/radio-walkie/dist/walkie.yml out-walkie/ 2>/dev/null || true
+          echo "── станция ──"; ls -la out-station; echo "── рация ──"; ls -la out-walkie
+
+      # ───────── Публикация: два отдельных релиза (черновик → опубликовать) ─────────
+      - name: Publish releases
         if: env.PUBLISH == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag='${{ steps.rel.outputs.tag }}'
-          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          # Убираем битые релизы прошлых попыток (пустой v0.2.0 и неполный v0.2.1)
-          for old in v0.2.0 v0.2.1; do gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true; done
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Радио и Рация ${tag#v}" \
-            --notes "Установщики для Windows. «Радио» — станция + рация, «Рация» — отдельный виджет. Обновляются сами из этого репозитория." \
-            --draft out/*
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          st='${{ steps.tags.outputs.station }}'
+          wk='${{ steps.tags.outputs.walkie }}'
+          repo="$GITHUB_REPOSITORY"
+          # Чистим прошлые/битые релизы этих версий и старый совместный (immutable-релизы можно удалять)
+          for t in "$st" "$wk" v0.2.0 v0.2.1 v0.2.2; do gh release delete "$t" --repo "$repo" --yes --cleanup-tag || true; done
+          # Станция — обычный релиз (latest)
+          gh release create "$st" --repo "$repo" --target "$GITHUB_SHA" \
+            --title "Радио ${st#v}" \
+            --notes "Станция «Радио» для Windows (в неё встроена и рация). Обновляется сама." \
+            --draft out-station/*
+          gh release edit "$st" --repo "$repo" --draft=false --latest
+          # Рация — отдельный релиз своего канала (pre-release, чтобы не мешать треку станции)
+          gh release create "$wk" --repo "$repo" --target "$GITHUB_SHA" \
+            --title "Рация ${wk#v}" \
+            --notes "Отдельная «Рация» для Windows (виджет на рабочий стол). Обновляется сама, отдельно от станции." \
+            --prerelease --draft out-walkie/*
+          gh release edit "$wk" --repo "$repo" --draft=false --prerelease
 
       # ───────── Артефакты (для ручного запуска без публикации) ─────────
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: pc-installers
-          path: out/*.exe
+          path: |
+            out-station/*.exe
+            out-walkie/*.exe
           if-no-files-found: warn

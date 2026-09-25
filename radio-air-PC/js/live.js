@@ -6,9 +6,9 @@
 
 const LIVE_RATE = 16000;   // частота дискретизации живого эфира, Гц
 const LIVE_CHUNK = 640;    // сэмплов в одном пакете — 40 мс
-const LIVE_JITTER = 0.12;      // запас на неровную доставку, с — минимум (на хорошей сети)
-const LIVE_JITTER_MAX = 0.7;   // на плохой сети буфер сам растёт до этого, чтобы пережить рывки
-const LIVE_MAX_LAG = 0.45;     // задержка выросла больше буфера — пересинхронизация, чтобы не копилась
+const LIVE_JITTER = 0.22;      // запас на неровную доставку, с — минимум (на хорошей сети)
+const LIVE_JITTER_MAX = 0.8;   // на плохой сети буфер сам растёт до этого, чтобы пережить рывки
+const LIVE_MAX_LAG = 0.6;      // задержка выросла больше буфера — пересинхронизация, чтобы не копилась
 
 // Без ключа шифротекст звучит как цифровая рация: байты модулируются четырьмя тонами (4FSK)
 const FSK4_TONES = [900, 1500, 2100, 2700];
@@ -125,8 +125,8 @@ class LiveStation extends Station {
     const now = this.ctx.currentTime;
     let j = this.jitter;
     if (this.playhead < now) {
-      // Недобор: сеть провалилась — растим буфер, чтобы пережить следующие рывки
-      j = Math.min(LIVE_JITTER_MAX, j * 1.5 + 0.05);
+      // Недобор: буфер опустел — сильно растим запас, чтобы пережить следующие рывки
+      j = Math.min(LIVE_JITTER_MAX, j * 1.8 + 0.08);
       this.jitter = j;
       this.good = 0;
       this.flushScheduled();
@@ -135,10 +135,15 @@ class LiveStation extends Station {
       // Задержка накопилась сверх буфера — пересинхронизируемся, оборвав хвост
       this.flushScheduled();
       this.playhead = now + j;
-    } else if (++this.good > 150) {
-      // Долго стабильно — потихоньку ужимаем задержку обратно к минимуму
+    } else if (this.playhead < now + j * 0.5) {
+      // Буфер тает (осталось меньше половины запаса) — заранее подрастим запас, без рывка,
+      // чтобы следующий провал сети не дошёл до тишины
+      this.jitter = Math.min(LIVE_JITTER_MAX, j * 1.3 + 0.03);
       this.good = 0;
-      this.jitter = Math.max(LIVE_JITTER, j * 0.85);
+    } else if (++this.good > 300) {
+      // Долго стабильно (12 с) — очень медленно ужимаем задержку обратно к минимуму
+      this.good = 0;
+      this.jitter = Math.max(LIVE_JITTER, j * 0.9);
     }
     const when = this.playhead;
     this.playhead += samples / LIVE_RATE;

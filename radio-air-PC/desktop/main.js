@@ -446,7 +446,12 @@ function setupUpdater() {
   } catch {
     return; // модуль не собрался — работаем без автообновления
   }
-  if (WALKIE_ONLY) autoUpdater.channel = 'walkie'; // свой манифест у «Рации»
+  if (WALKIE_ONLY) {
+    // «Рация» обновляется своим треком: отдельные релизы-предрелизы с манифестом walkie.yml.
+    // Так станция и рация на ПК обновляются независимо (см. pack_walkie.py и workflow).
+    autoUpdater.channel = 'walkie';
+    autoUpdater.allowPrerelease = true;
+  }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => { updaterState = { state: 'checking', version: app.getVersion(), percent: 0, message: null }; sendUpdater(); });
