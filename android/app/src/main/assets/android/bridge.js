@@ -83,6 +83,7 @@
       }
       const put = (st) => {
         if (!st || !Number.isInteger(st.id) || !Number.isFinite(st.freq)) return;
+        if (st.freq === 470 && String(st.name).startsWith('⌁')) return; // канал данных отряда — не человек
         const was = this.people.get(st.id);
         this.people.set(st.id, { id: st.id, freq: st.freq, name: String(st.name ?? ''), since: was?.since ?? Date.now() });
       };
@@ -140,6 +141,7 @@
     class AirWebSocket {
       constructor(url) {
         this.url = String(url);
+        this.data = this.url.includes('data=1'); // служебный канал отряда (squad.js) — не эфир
         this.id = nextId++;
         this.binaryType = 'arraybuffer';
         this.readyState = AirWebSocket.CONNECTING;
@@ -152,20 +154,20 @@
       event(e) {
         if (e.type === 'open') {
           this.readyState = AirWebSocket.OPEN;
-          net.online = true;
+          if (!this.data) net.online = true;
           this.onopen?.({ type: 'open', target: this });
         } else if (e.type === 'text') {
-          net.fromServer(e.data);
+          if (!this.data) net.fromServer(e.data);
           this.onmessage?.({ type: 'message', data: e.data, target: this });
         } else if (e.type === 'binary') {
           const data = fromBase64(e.data);
-          net.audio(data);
+          if (!this.data) net.audio(data);
           this.onmessage?.({ type: 'message', data, target: this });
         } else if (e.type === 'close') {
           if (this.readyState === AirWebSocket.CLOSED) return;
           this.readyState = AirWebSocket.CLOSED;
           sockets.delete(this.id);
-          if (!sockets.size) {
+          if (!this.data && ![...sockets.values()].some((x) => !x.data)) {
             net.online = false;
             net.reset();
             net.changed();
@@ -178,7 +180,7 @@
         if (this.readyState !== AirWebSocket.OPEN) return;
         let queued;
         if (typeof data === 'string') {
-          net.toServer(data);
+          if (!this.data) net.toServer(data);
           queued = air.sendText(this.id, data);
         } else {
           const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -320,6 +322,7 @@
       const r = w();
       if (active || !r?.radio.power) return;
       active = true;
+      window.__walkieSquadSos?.(true); // и координаты отряду (squad.js)
       label.hidden = false;
       shell?.vibrate?.();
       flashLoop();
@@ -329,6 +332,7 @@
     function stop() {
       if (!active) return;
       active = false;
+      window.__walkieSquadSos?.(false);
       timers.forEach(clearTimeout);
       timers = [];
       try {
@@ -661,6 +665,8 @@
       (on) => shell?.setOption?.('bubble', on)));
     sec.append(toggle('На экране блокировки', 'Кнопка PTT и рация без разблокировки', native.lockScreen !== false,
       (on) => shell?.setOption?.('lockScreen', on)));
+    sec.append(toggle('Делиться местом с отрядом', 'Карта 📍: ваша точка видна тем, кто на сервере (с ключом SCR — только им)', native.shareLocation,
+      (on) => shell?.setOption?.('shareLocation', on)));
     sec.append(toggle('Кто вышел в сеть', 'Уведомление, когда кто-то включил рацию или станция вышла в эфир', native.joinAlerts !== false,
       (on) => shell?.setOption?.('joinAlerts', on)));
     sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,

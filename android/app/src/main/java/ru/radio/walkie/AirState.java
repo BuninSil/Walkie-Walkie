@@ -89,6 +89,7 @@ public final class AirState {
                 case "station-on": {
                     // Тот же id шлётся и при смене частоты — новый только тот, кого ещё не было
                     JSONObject st = msg.optJSONObject("station");
+                    if (isDataStation(st)) break;
                     boolean fresh = st != null && !stations.containsKey(st.optLong("id"));
                     remember(st);
                     if (fresh) {
@@ -150,7 +151,14 @@ public final class AirState {
     }
 
     private static void remember(JSONObject st) {
-        if (st != null) stations.put(st.optLong("id"), st.optString("name", "?"));
+        if (st != null && !isDataStation(st)) stations.put(st.optLong("id"), st.optString("name", "?"));
+    }
+
+    // Служебный канал данных отряда (squad.js) — не человек: не показываем и не объявляем
+    static final double DATA_FREQ = 470.0;
+
+    static boolean isDataStation(JSONObject st) {
+        return st != null && Math.abs(st.optDouble("freq", 0) - DATA_FREQ) < 1e-6 && st.optString("name", "").startsWith("⌁");
     }
 
     // Через AUDIO_HOLD_MS после последнего пакета — ещё раз оповестить: приём или передача закончились

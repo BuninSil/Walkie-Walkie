@@ -43,6 +43,18 @@ public class AirSocket {
         .pingInterval(20, TimeUnit.SECONDS)
         .build();
     private final Map<Integer, WebSocket> sockets = new ConcurrentHashMap<>();
+    // Служебный канал данных отряда (карта, сообщения, SOS — squad.js): адрес с ?data=1.
+    // Это не эфир: уведомление, кнопка поверх и «на связи» его не учитывают
+    private final Map<Integer, Boolean> dataSockets = new ConcurrentHashMap<>();
+
+    private static boolean isData(String url) {
+        return url != null && url.contains("data=1");
+    }
+
+    private boolean airEmpty() {
+        for (Integer id : sockets.keySet()) if (!dataSockets.containsKey(id)) return false;
+        return true;
+    }
     private volatile String lastProblem = null; // чтобы не повторять одно и то же сообщение при каждой попытке
 
     AirSocket(Activity activity, WebView web) {
@@ -52,17 +64,24 @@ public class AirSocket {
 
     @JavascriptInterface
     public void open(int id, String url) {
+        boolean data = isData(url);
+        if (data) dataSockets.put(id, true);
         Request request;
         try {
             request = new Request.Builder().url(url).header("Origin", PC_ORIGIN).build();
         } catch (IllegalArgumentException e) {
-            problem(url, "неверный адрес");
+            if (!data) problem(url, "неверный адрес");
+            dataSockets.remove(id);
             emit(id, "close", null, 1006);
             return;
         }
         WebSocket ws = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
+                if (data) {
+                    emit(id, "open", null, 0);
+                    return;
+                }
                 lastProblem = null;
                 AirState.connected(url, true);
                 emit(id, "open", null, 0);
@@ -70,14 +89,14 @@ public class AirSocket {
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
-                AirState.incomingText(text);
+                if (!data) AirState.incomingText(text);
                 emit(id, "text", text, 0);
             }
 
             @Override
             public void onMessage(WebSocket webSocket, ByteString bytes) {
                 // Первые 4 байта — номер станции (см. link.js); остальное рация разбирает сама
-                if (bytes.size() > 4) {
+                if (!data && bytes.size() > 4) {
                     long station = ((bytes.getByte(0) & 0xffL) << 24) | ((bytes.getByte(1) & 0xffL) << 16)
                         | ((bytes.getByte(2) & 0xffL) << 8) | (bytes.getByte(3) & 0xffL);
                     AirState.incomingAudio(station);
@@ -93,14 +112,20 @@ public class AirSocket {
             @Override
             public void onClosed(WebSocket webSocket, int code, String reason) {
                 if (sockets.remove(id) == null) return;
-                if (sockets.isEmpty()) AirState.connected(url, false);
+                dataSockets.remove(id);
+                if (!data && airEmpty()) AirState.connected(url, false);
                 emit(id, "close", null, code);
             }
 
             @Override
             public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                 if (sockets.remove(id) == null) return;
-                if (sockets.isEmpty()) AirState.connected(url, false);
+                dataSockets.remove(id);
+                if (data) {
+                    emit(id, "close", null, 1006);
+                    return;
+                }
+                if (airEmpty()) AirState.connected(url, false);
                 problem(url, describe(t, response));
                 emit(id, "close", null, 1006);
             }
@@ -112,7 +137,7 @@ public class AirSocket {
     public long sendText(int id, String text) {
         WebSocket ws = sockets.get(id);
         if (ws == null) return 0;
-        AirState.outgoingText(text);
+        if (!dataSockets.containsKey(id)) AirState.outgoingText(text);
         ws.send(text);
         return ws.queueSize();
     }
@@ -121,7 +146,7 @@ public class AirSocket {
     public long sendBinary(int id, String base64) {
         WebSocket ws = sockets.get(id);
         if (ws == null) return 0;
-        AirState.outgoingAudio();
+        if (!dataSockets.containsKey(id)) AirState.outgoingAudio();
         ws.send(ByteString.of(Base64.decode(base64, Base64.NO_WRAP)));
         return ws.queueSize();
     }
@@ -130,7 +155,8 @@ public class AirSocket {
     public void close(int id) {
         WebSocket ws = sockets.remove(id);
         if (ws == null) return;
-        if (sockets.isEmpty()) AirState.connected(ws.request().url().toString(), false);
+        boolean data = dataSockets.remove(id) != null;
+        if (!data && airEmpty()) AirState.connected(ws.request().url().toString(), false);
         ws.close(1000, null);
         emit(id, "close", null, 1000);
     }
@@ -138,6 +164,7 @@ public class AirSocket {
     void closeAll() {
         for (WebSocket ws : sockets.values()) ws.cancel();
         sockets.clear();
+        dataSockets.clear();
         AirState.online = false;
     }
 
