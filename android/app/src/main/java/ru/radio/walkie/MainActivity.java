@@ -71,6 +71,12 @@ public class MainActivity extends ComponentActivity {
             if (pendingFile != null) pendingFile.onReceiveValue(uri != null ? new Uri[] { uri } : null);
             pendingFile = null;
         });
+    // QR ключа SCR: результат сканера уходит в рацию (__walkieQr), отмена — null
+    private final androidx.activity.result.ActivityResultLauncher<com.journeyapps.barcodescanner.ScanOptions> scanQr = registerForActivityResult(
+        new com.journeyapps.barcodescanner.ScanContract(), (result) -> {
+            String text = result != null ? result.getContents() : null;
+            js("window.__walkieQr&&window.__walkieQr(" + (text != null ? JSONObject.quote(text) : "null") + ")");
+        });
     private boolean wantBubble;        // включили кнопку поверх — ждём разрешения в настройках Android
     private AlertDialog textDialog;
     private SharedPreferences prefs;
@@ -219,7 +225,7 @@ public class MainActivity extends ComponentActivity {
             byte[] chunk = new byte[8192];
             for (int n; (n = in.read(chunk)) > 0; ) buf.write(chunk, 0, n);
             String html = buf.toString("UTF-8")
-                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>")
+                .replaceFirst("<head>", "<head>\n  <script src=\"/assets/android/bridge.js\"></script>\n  <script src=\"/assets/android/look.js\"></script>\n  <script src=\"/assets/android/voice.js\"></script>\n  <script src=\"/assets/android/privacy.js\"></script>")
                 .replaceFirst("</head>", "  <link rel=\"stylesheet\" href=\"/assets/android/android.css\">\n  <link rel=\"stylesheet\" href=\"/assets/android/look.css\">\n</head>");
             return new WebResourceResponse("text/html", "utf-8",
                 new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
@@ -301,12 +307,6 @@ public class MainActivity extends ComponentActivity {
         if (a != null) a.js("window.__walkieHotkey&&window.__walkieHotkey(" + JSONObject.quote(action) + ")");
     }
 
-    // Плашка «вышел в сеть» в самой рации (рация открыта)
-    static void joined(String name, double freq) {
-        MainActivity a = instance;
-        if (a != null) a.js("window.__walkieJoined&&window.__walkieJoined(" + JSONObject.quote(name) + "," + freq + ")");
-    }
-
     static void quitFromOutside() {
         MainActivity a = instance;
         if (a != null) a.finishAndRemoveTask();
@@ -336,7 +336,6 @@ public class MainActivity extends ComponentActivity {
             o.put("bubble", WalkieService.bubbleEnabled(this) && Settings.canDrawOverlays(this));
             o.put("keepScreen", prefs.getBoolean(PREF_KEEP_SCREEN, false));
             o.put("lockScreen", WalkieService.lockScreenEnabled(this));
-            o.put("joinAlerts", WalkieService.joinAlertsEnabled(this));
             o.put("version", BuildConfig.VERSION_NAME);
             o.put("update", updater.toJson());
         } catch (Exception ignored) {
@@ -483,6 +482,18 @@ public class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public void scanQr() {
+            runOnUiThread(() -> {
+                com.journeyapps.barcodescanner.ScanOptions o = new com.journeyapps.barcodescanner.ScanOptions();
+                o.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE);
+                o.setPrompt("Наведите на QR ключа на экране другой рации");
+                o.setBeepEnabled(false);
+                o.setOrientationLocked(false);
+                scanQr.launch(o);
+            });
+        }
+
+        @JavascriptInterface
         public void vibrate() {
             Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (v != null && v.hasVibrator()) v.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE));
@@ -525,8 +536,6 @@ public class MainActivity extends ComponentActivity {
                 } else if ("lockScreen".equals(name)) {
                     prefs.edit().putBoolean(WalkieService.PREF_LOCK, on).apply();
                     setShowWhenLocked(on);
-                } else if ("joinAlerts".equals(name)) {
-                    prefs.edit().putBoolean(WalkieService.PREF_JOINS, on).apply();
                 } else if ("keepScreen".equals(name)) {
                     prefs.edit().putBoolean(PREF_KEEP_SCREEN, on).apply();
                     applyKeepScreen();

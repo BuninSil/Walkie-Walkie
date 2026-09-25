@@ -23,13 +23,6 @@ public final class AirState {
         void onAirChanged();
     }
 
-    // Кто-то вышел в сеть: новая станция на сервере (рация включилась или станция вышла в эфир)
-    public interface Joins {
-        void joined(String name, double freq);
-    }
-
-    public static volatile Joins joins;
-
     private static final long AUDIO_HOLD_MS = 450; // звук пропал на столько — приём/передача закончились
 
     public static volatile boolean online = false;
@@ -41,9 +34,6 @@ public final class AirState {
     private static volatile long lastRx = 0;
     private static volatile long lastTx = 0;
     private static final Map<Long, String> stations = new ConcurrentHashMap<>();
-    // Кто ушёл недавно: вернулся за REJOIN_MS — это переподключение (сеть моргнула, перезапуск), не «вышел в сеть»
-    private static final long REJOIN_MS = 90_000;
-    private static final Map<String, Long> recentlyLeft = new ConcurrentHashMap<>();
     private static final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
     private static final Handler main = new Handler(Looper.getMainLooper());
     private static final Runnable settle = AirState::changed;
@@ -86,27 +76,12 @@ public final class AirState {
                     JSONArray list = msg.optJSONArray("stations");
                     for (int i = 0; list != null && i < list.length(); i++) remember(list.optJSONObject(i));
                     break;
-                case "station-on": {
-                    // Тот же id шлётся и при смене частоты — новый только тот, кого ещё не было
-                    JSONObject st = msg.optJSONObject("station");
-                    boolean fresh = st != null && !stations.containsKey(st.optLong("id"));
-                    remember(st);
-                    if (fresh) {
-                        String name = st.optString("name", "");
-                        double f = st.optDouble("freq", 0);
-                        Long left = recentlyLeft.remove(name);
-                        Joins j = joins;
-                        if (j != null && (left == null || SystemClock.uptimeMillis() - left > REJOIN_MS)) {
-                            main.post(() -> j.joined(name, f));
-                        }
-                    }
+                case "station-on":
+                    remember(msg.optJSONObject("station"));
                     break;
-                }
-                case "station-off": {
-                    String name = stations.remove(msg.optLong("id"));
-                    if (name != null) recentlyLeft.put(name, SystemClock.uptimeMillis());
+                case "station-off":
+                    stations.remove(msg.optLong("id"));
                     break;
-                }
                 default:
                     break;
             }
@@ -169,10 +144,6 @@ public final class AirState {
 
     // «446.00625 · PMR 1» — как пишет рация
     public static String channelText() {
-        return channelText(freq);
-    }
-
-    public static String channelText(double freq) {
         if (freq <= 0) return null;
         String f = String.format(java.util.Locale.US, "%.5f", freq).replaceAll("(\\.\\d{3}\\d*?)0+$", "$1");
         for (int i = 0; i < 16; i++) {

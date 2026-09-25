@@ -53,72 +53,6 @@
     quit: async () => shell?.quit(),
   };
 
-  /* ───────── Кто в сети ─────────
-   * Сервер эфира не отдаёт список подключённых, но каждая включённая рация «стоит на канале»:
-   * регистрируется станцией со своим позывным и частотой (welcome / station-on / station-off
-   * приходят всем). Их и показываем; себя — по onair-ok. Кто говорит — по звуку, который доходит
-   * до нас (сервер шлёт его только тем, кто рядом по частоте). Сервер для этого менять не нужно. */
-  const net = {
-    online: false,
-    self: null,          // id своей станции на сервере
-    myName: '',
-    myFreqs: [],         // что сейчас слушает рация (из tune)
-    people: new Map(),   // id → { id, freq, name, since }
-    heard: new Map(),    // id → когда последний раз пришёл звук
-    listeners: new Set(),
-    changed() {
-      for (const fn of this.listeners) fn();
-    },
-    reset() {
-      this.people.clear();
-      this.heard.clear();
-      this.self = null;
-    },
-    fromServer(text) {
-      let msg;
-      try {
-        msg = JSON.parse(text);
-      } catch {
-        return;
-      }
-      const put = (st) => {
-        if (!st || !Number.isInteger(st.id) || !Number.isFinite(st.freq)) return;
-        const was = this.people.get(st.id);
-        this.people.set(st.id, { id: st.id, freq: st.freq, name: String(st.name ?? ''), since: was?.since ?? Date.now() });
-      };
-      switch (msg?.type) {
-        case 'welcome':
-          this.reset();
-          (Array.isArray(msg.stations) ? msg.stations : []).forEach(put);
-          break;
-        case 'station-on': put(msg.station); break;
-        case 'station-off':
-          this.people.delete(msg.id);
-          this.heard.delete(msg.id);
-          break;
-        case 'onair-ok': this.self = msg.station?.id ?? null; break;
-        default: return;
-      }
-      this.changed();
-    },
-    toServer(text) {
-      if (!text.includes('"tune"') && !text.includes('"onair"')) return;
-      try {
-        const msg = JSON.parse(text);
-        if (msg.type === 'tune') this.myFreqs = (Array.isArray(msg.freqs) ? msg.freqs : [msg.freq]).map(Number).filter(Number.isFinite);
-        else if (msg.type === 'onair') this.myName = String(msg.name ?? '');
-      } catch {
-        /* не JSON */
-      }
-    },
-    audio(buffer) {
-      if (buffer.byteLength < 4) return;
-      const id = new DataView(buffer).getUint32(0);
-      if (id !== this.self) this.heard.set(id, Date.now());
-    },
-  };
-  window.__walkieNet = net;
-
   /* ───────── 2. WebSocket через Java ───────── */
 
   if (air) {
@@ -152,24 +86,15 @@
       event(e) {
         if (e.type === 'open') {
           this.readyState = AirWebSocket.OPEN;
-          net.online = true;
           this.onopen?.({ type: 'open', target: this });
         } else if (e.type === 'text') {
-          net.fromServer(e.data);
           this.onmessage?.({ type: 'message', data: e.data, target: this });
         } else if (e.type === 'binary') {
-          const data = fromBase64(e.data);
-          net.audio(data);
-          this.onmessage?.({ type: 'message', data, target: this });
+          this.onmessage?.({ type: 'message', data: fromBase64(e.data), target: this });
         } else if (e.type === 'close') {
           if (this.readyState === AirWebSocket.CLOSED) return;
           this.readyState = AirWebSocket.CLOSED;
           sockets.delete(this.id);
-          if (!sockets.size) {
-            net.online = false;
-            net.reset();
-            net.changed();
-          }
           this.onclose?.({ type: 'close', code: e.code ?? 1006, target: this });
         }
       }
@@ -178,7 +103,6 @@
         if (this.readyState !== AirWebSocket.OPEN) return;
         let queued;
         if (typeof data === 'string') {
-          net.toServer(data);
           queued = air.sendText(this.id, data);
         } else {
           const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -493,7 +417,6 @@
     setTimeout(() => whatsNew(version, `v${version}`, hadData, WN_CSS.replace('var(--wn-accent, #ff9a3c)', 'var(--label-alt, #ff9a3c)')), 1200);
     setupTextEntry();
     setupLook();
-    setupNet();
     setupMicRelease();
     // На ПК страница открыта с app:// и «своего» сервера у неё нет; здесь адрес страницы https://,
     // и link.js принял бы его за сервер. Сервер не выбран — пусть рация так и показывает
@@ -654,6 +577,7 @@
       window.WalkieLook?.open();
     });
     sheet.append(lookBtn);
+    for (const sec of window.WalkiePrivacy?.sections(renderPanel) || []) sheet.append(sec); // позывной, ключ, голос
 
     const sec = el('section', 'wk-sec');
     sec.append(el('h3', null, 'Телефон'));
@@ -661,8 +585,6 @@
       (on) => shell?.setOption?.('bubble', on)));
     sec.append(toggle('На экране блокировки', 'Кнопка PTT и рация без разблокировки', native.lockScreen !== false,
       (on) => shell?.setOption?.('lockScreen', on)));
-    sec.append(toggle('Кто вышел в сеть', 'Уведомление, когда кто-то включил рацию или станция вышла в эфир', native.joinAlerts !== false,
-      (on) => shell?.setOption?.('joinAlerts', on)));
     sec.append(toggle('Не гасить экран', 'Пока рация открыта', native.keepScreen,
       (on) => shell?.setOption?.('keepScreen', on)));
     sheet.append(sec);
@@ -690,222 +612,6 @@
     sheet.append(done);
     sheet.append(el('p', 'wk-ver', `Рация для Android${native.version ? ` ${native.version}` : ''} · Авторы: BuninSil и Valex`));
     panel.replaceChildren(sheet);
-  }
-
-  /* ───────── Кто в сети: кнопка 👥 над рацией ───────── */
-
-  const UHF_CHANNEL = 0.006; // как на сервере: у раций узкие каналы
-  const FM_CHANNEL = 0.2;
-  let netPanel = null;
-  let netTimer = 0;
-
-  function fmtFreq(f) {
-    if (f < 300) return `${f.toFixed(1)} FM`;
-    let t = f.toFixed(5).replace(/0+$/, '');
-    if (t.split('.')[1].length < 3) t = f.toFixed(3);
-    return t;
-  }
-
-  function fmtSince(ms) {
-    const min = Math.floor(ms / 60000);
-    if (min < 1) return 'только что';
-    if (min < 60) return `${min} мин`;
-    const h = Math.floor(min / 60);
-    return h < 24 ? `${h} ч ${min % 60} мин` : `${Math.floor(h / 24)} д`;
-  }
-
-  /* Тап по человеку — рация переходит на его частоту. Частоту крутим так же, как её крутит
-   * горячая клавиша «канал вверх» на ПК (stepTuning в рации): встаём на шаг ниже и делаем шаг
-   * вверх — рация сама перестроит приёмник, скажет серверу и сохранит канал. */
-  const r5 = (v) => Math.round(v * 1e5) / 1e5;
-  const PLANS = { // как в рации: PMR и LPD
-    PMR: Array.from({ length: 16 }, (_, i) => r5(446.00625 + i * 0.0125)),
-    LPD: Array.from({ length: 69 }, (_, i) => r5(433.075 + i * 0.025)),
-  };
-  const STEPS = [2.5, 5, 6.25, 10, 12.5, 25];
-
-  function tuneTo(f) {
-    const w = window.radioWidget;
-    if (!w || !window.__walkieHotkey) return 'Рация ещё не готова';
-    if (!w.radio.power) return 'Сначала включите рацию';
-    if (w.tx.active) return 'Отпустите PTT';
-    const step = (dir) => window.__walkieHotkey(dir > 0 ? 'chUp' : 'chDown');
-    if (f < 300) {
-      w.radio.fm = true;
-      const up = f - 0.1 >= 87.5;
-      w.radio.fmFreq = r5(up ? f - 0.1 : f + 0.1);
-      step(up ? 1 : -1);
-      return null;
-    }
-    w.radio.fm = false;
-    const v = w.vfo[w.radio.active];
-    // Рация в режиме каналов (MR), а частота — канал PMR/LPD: выбираем его номер
-    if (v.mode === 'mr') {
-      for (const [plan, list] of Object.entries(PLANS)) {
-        const i = list.findIndex((c) => Math.abs(c - f) < 1e-6);
-        if (i < 0) continue;
-        v.plan = plan;
-        v.ch = (i - 1 + list.length) % list.length;
-        step(1);
-        return null;
-      }
-    }
-    // Частота (VFO): шаг, в сетку которого она попадает; настройку шага пользователя возвращаем
-    const keep = w.cfg.step;
-    let s = STEPS.findIndex((k) => Math.abs(Math.round(f / (k / 1000)) * (k / 1000) - f) < 1e-6);
-    if (s < 0) s = 0;
-    const d = STEPS[s] / 1000;
-    v.mode = 'vfo';
-    w.cfg.step = s;
-    const up = f - d >= 400;
-    v.freq = r5(up ? f - d : f + d);
-    step(up ? 1 : -1);
-    w.cfg.step = keep;
-    return null;
-  }
-
-  const onMyChannel = (f) => net.myFreqs.some((m) => Math.abs(m - f) <= (f < 300 ? FM_CHANNEL : UHF_CHANNEL));
-
-  function setupNet() {
-    const chrome = document.getElementById('chrome');
-    const btn = document.createElement('button');
-    btn.className = 'chrome__btn wk-net-btn';
-    btn.id = 'win-net';
-    btn.type = 'button';
-    btn.title = 'Кто в сети';
-    btn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m5.6.2a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2M0 13.6C0 11 2.4 9 5.5 9S11 11 11 13.6V14H0zm11.9.4v-.4c0-1.4-.5-2.7-1.4-3.7l.6-.1c2.7 0 4.9 1.8 4.9 4.1v.1z"/></svg><b class="wk-net-count" hidden></b>';
-    btn.addEventListener('click', () => openNet(true));
-    const gear = document.getElementById('win-settings');
-    if (gear) gear.after(btn);
-    else chrome?.prepend(btn);
-
-    netPanel = document.createElement('div');
-    netPanel.className = 'wk-panel';
-    netPanel.hidden = true;
-    netPanel.addEventListener('click', (e) => {
-      if (e.target === netPanel) openNet(false);
-    });
-    document.body.append(netPanel);
-
-    const badge = btn.querySelector('.wk-net-count');
-    const refreshBadge = () => {
-      const n = net.people.size;
-      badge.hidden = !net.online || n === 0;
-      badge.textContent = n > 99 ? '99+' : String(n);
-      btn.classList.toggle('is-offline', !net.online);
-    };
-    net.listeners.add(refreshBadge);
-    net.listeners.add(renderNet);
-    refreshBadge();
-  }
-
-  function openNet(open) {
-    netPanel.hidden = !open;
-    clearInterval(netTimer);
-    if (open) {
-      renderNet();
-      netTimer = setInterval(renderNet, 1000); // «говорит» и «в сети N мин» — живые
-    }
-  }
-
-  function personRow(p, now) {
-    const row = el(p.id >= 0 ? 'button' : 'div', 'wk-row wk-person');
-    if (p.id >= 0) {
-      row.type = 'button';
-      row.addEventListener('click', () => {
-        const err = onMyChannel(p.freq) ? null : tuneTo(p.freq);
-        if (err) {
-          netNote(err);
-          return;
-        }
-        shell?.vibrate?.();
-        openNet(false);
-      });
-    }
-    const talking = now - (net.heard.get(p.id) ?? 0) < 1200;
-    if (talking) row.classList.add('is-talking');
-    const text = el('span', 'wk-row__text');
-    const name = el('b', 'wk-person__name', p.name || 'Без позывного');
-    text.append(name, el('small', null, talking ? 'говорит' : `в сети ${fmtSince(now - p.since)}`));
-    const freq = el('span', 'wk-person__freq', fmtFreq(p.freq));
-    row.append(el('i', 'wk-person__dot'), text, freq);
-    return row;
-  }
-
-  // «БУНИН в сети» — плашка сверху, пока рация открыта (из Java, вместе с уведомлением Android).
-  // Нажать — перейти на его частоту.
-  let joinBox = null;
-  window.__walkieJoined = (name, freq) => {
-    if (!joinBox) {
-      joinBox = el('div', 'wk-joins');
-      document.body.append(joinBox);
-    }
-    const fm = freq > 0 && freq < 300;
-    const item = el('button', 'wk-join');
-    item.type = 'button';
-    item.append(el('b', null, `${fm ? '📻' : '📡'} ${name}`), el('span', null, `${fm ? 'в эфире' : 'в сети'} · ${fmtFreq(freq)}${onMyChannel(freq) ? ' · ваш канал' : ''}`));
-    const drop = () => {
-      item.classList.add('is-gone');
-      setTimeout(() => item.remove(), 250);
-    };
-    item.addEventListener('click', () => {
-      const err = onMyChannel(freq) ? null : tuneTo(freq);
-      if (!err) shell?.vibrate?.();
-      drop();
-    });
-    joinBox.append(item);
-    while (joinBox.children.length > 3) joinBox.firstChild.remove();
-    setTimeout(drop, 4500);
-  };
-
-  let netMsg = null;
-  function netNote(text) {
-    netMsg = { text, until: Date.now() + 2500 };
-    renderNet();
-  }
-
-  function renderNet() {
-    if (!netPanel || netPanel.hidden) return;
-    const now = Date.now();
-    const sheet = el('div', 'wk-sheet');
-    const people = [...net.people.values()].filter((p) => p.id !== net.self)
-      .sort((a, b) => a.freq - b.freq || a.name.localeCompare(b.name, 'ru'));
-    sheet.append(el('h2', null, net.online ? `Кто в сети · ${people.length}` : 'Кто в сети'));
-    if (netMsg && netMsg.until > now) sheet.append(el('p', 'wk-net-warn', netMsg.text));
-
-    if (!net.online) {
-      sheet.append(el('p', 'wk-net-note', 'Нет связи с сервером. Подключитесь: MENU → SERVER, или проверьте интернет (на мобильном — через VPN).'));
-    } else {
-      const me = el('section', 'wk-sec');
-      me.append(el('h3', null, 'Вы'));
-      me.append(personRow({ id: -1, name: net.myName || 'Без позывного', freq: net.myFreqs[0] ?? 0, since: now }, now));
-      me.querySelector('small').textContent = net.myFreqs.length > 1 ? `слушаете ${net.myFreqs.map(fmtFreq).join(' и ')}` : 'это вы';
-      if (!net.myFreqs.length) me.querySelector('.wk-person__freq').textContent = '—';
-      sheet.append(me);
-
-      const groups = [
-        ['На вашем канале', people.filter((p) => onMyChannel(p.freq))],
-        ['Рации', people.filter((p) => p.freq >= 300 && !onMyChannel(p.freq))],
-        ['FM-станции', people.filter((p) => p.freq < 300 && !onMyChannel(p.freq))],
-      ];
-      for (const [title, list] of groups) {
-        if (!list.length) continue;
-        const sec = el('section', 'wk-sec');
-        sec.append(el('h3', null, `${title} · ${list.length}`));
-        for (const p of list) sec.append(personRow(p, now));
-        sheet.append(sec);
-      }
-      if (!people.length) sheet.append(el('p', 'wk-net-note', 'Кроме вас никого нет. Рация видна в сети, пока она включена.'));
-      sheet.append(el('p', 'wk-net-note', 'Видны все включённые рации и станции на этом сервере. Нажмите на человека — рация перейдёт на его частоту. «Говорит» — у тех, чей эфир доходит до вашего канала.'));
-    }
-
-    const done = el('button', 'wk-done', 'Готово');
-    done.type = 'button';
-    done.addEventListener('click', () => openNet(false));
-    sheet.append(done);
-    const keep = netPanel.querySelector('.wk-sheet')?.scrollTop ?? 0;
-    netPanel.replaceChildren(sheet);
-    sheet.scrollTop = keep;
   }
 
   // Долгое нажатие не должно открывать меню «копировать / выделить»

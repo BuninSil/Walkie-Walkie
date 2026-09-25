@@ -26,13 +26,11 @@ import androidx.core.content.ContextCompat;
  *   • показывает постоянное уведомление: на связи ли рация, канал, кто говорит;
  *   • показывает кнопку PTT поверх других приложений (PttBubble), когда рация свёрнута.
  */
-public class WalkieService extends Service implements AirState.Listener, AirState.Joins {
+public class WalkieService extends Service implements AirState.Listener {
 
     static final String PREFS = "walkie";
     static final String PREF_BUBBLE = "bubble";
     static final String PREF_LOCK = "lock_screen"; // рация и кнопка PTT на экране блокировки
-    static final String PREF_JOINS = "join_alerts"; // уведомлять, кто вышел в сеть
-    private static final String CHANNEL_JOINS = "walkie-joins";
 
     private static final String CHANNEL = "walkie-status";
     private static final int NOTIFICATION_ID = 1;
@@ -73,10 +71,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
     public static void appVisible(boolean visible) {
         appVisible = visible;
         if (instance != null) instance.refresh();
-    }
-
-    static boolean joinAlertsEnabled(Context context) {
-        return context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_JOINS, true);
     }
 
     static boolean lockScreenEnabled(Context context) {
@@ -127,9 +121,10 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
         wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
 
+        // Уведомлений «вышел в сеть» больше нет — убрать их канал из настроек Android
+        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).deleteNotificationChannel("walkie-joins");
         bubble = new PttBubble(this);
         AirState.addListener(this);
-        AirState.joins = this;
         instance = this;
         updateTimer.run();
         android.content.IntentFilter screen = new android.content.IntentFilter();
@@ -261,49 +256,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
             .build();
     }
 
-    // Кто-то вышел в сеть. Рация открыта — плашка в самой рации и тихое уведомление в шторке;
-    // рация в фоне или экран заблокирован — обычное уведомление со звуком.
-    @Override
-    public void joined(String name, double freq) {
-        if (!joinAlertsEnabled(this)) return;
-        String who = name == null || name.trim().isEmpty() ? "Без позывного" : name.trim();
-        boolean fm = freq > 0 && freq < 300;
-        String title = fm ? "📻 " + who + " в эфире" : "📡 " + who + " в сети";
-        String ch = AirState.channelText(freq);
-        String text = (ch != null ? ch : "") + (onMyChannel(freq) ? " · на вашем канале" : "");
-        if (appVisible) MainActivity.joined(who, freq);
-
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel channel = new NotificationChannel(CHANNEL_JOINS, "Кто вышел в сеть", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("Кто-то включил рацию или станция вышла в эфир на вашем сервере");
-        nm.createNotificationChannel(channel);
-        Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent tap = PendingIntent.getActivity(this, 4, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification n = new NotificationCompat.Builder(this, CHANNEL_JOINS)
-            .setSmallIcon(R.drawable.ic_stat_walkie)
-            .setColor(0xffff9a3c)
-            .setContentTitle(title)
-            .setContentText(text.isEmpty() ? null : text)
-            .setContentIntent(tap)
-            .setAutoCancel(true)
-            .setSilent(appVisible) // рация и так на экране — без звука и всплывашки
-            .setTimeoutAfter(30 * 60 * 1000L)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setGroup("walkie-joins")
-            .build();
-        try {
-            nm.notify("join:" + who, 1, n); // один и тот же человек — одно уведомление
-        } catch (SecurityException ignored) {
-            // уведомления запрещены — ну и ладно
-        }
-    }
-
-    private static boolean onMyChannel(double f) {
-        double mine = AirState.freq;
-        return mine > 0 && Math.abs(mine - f) <= (f < 300 ? 0.2 : 0.006);
-    }
-
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         stopSelf(); // рацию смахнули из недавних — выключаемся
@@ -312,7 +264,6 @@ public class WalkieService extends Service implements AirState.Listener, AirStat
     @Override
     public void onDestroy() {
         AirState.removeListener(this);
-        if (AirState.joins == this) AirState.joins = null;
         if (instance == this) instance = null;
         timers.removeCallbacks(updateTimer);
         try {
