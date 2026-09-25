@@ -56,10 +56,9 @@ html[data-finish="carbon"] .body {
 
 /* Камуфляжи — палитра из look.js (--camo-base/a/b/c/d), узор один на все.
    Наносится на корпус, кнопки и боковые клавиши, как на настоящих раскрашенных рациях. */
+/* Боковые кнопки (PTT/MON/фонарик) камуфляжем НЕ красим — чёрные с подписями, как на референсе. */
 html[data-finish^="camo-"] .body,
-html[data-finish^="camo-"] .keypad .key,
-html[data-finish^="camo-"] .side__ptt,
-html[data-finish^="camo-"] .side__key {
+html[data-finish^="camo-"] .keypad .key {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 40%, rgba(0, 0, 0, 0.22)),
     radial-gradient(22px 15px at 20% 25%, var(--camo-a) 70%, transparent 72%) 0 0 / 70px 60px,
@@ -70,26 +69,19 @@ html[data-finish^="camo-"] .side__key {
     radial-gradient(20px 14px at 90% 78%, var(--camo-a) 70%, transparent 72%) 40px 8px / 80px 66px,
     var(--camo-base) !important;
 }
-
-/* Кнопкам — мельче пятна (порядок слоёв: блик 100%, шесть пятен, базовый цвет auto) */
 html[data-finish^="camo-"] .keypad .key {
   background-size: 100% 100%, 42px 36px, 50px 44px, 36px 48px, 58px 48px, 34px 35px, 48px 40px, auto !important;
 }
 
-/* Реалистичный камуфляж: текстура (camo.js) + глянец и блики поверх. Перекрывает запасной узор. */
+/* Реалистичный камуфляж: текстура (camo.js) + выраженный глянец сверху и тень снизу, как на референсе. */
 html[data-camo-tex] .body,
-html[data-camo-tex] .keypad .key,
-html[data-camo-tex] .side__ptt,
-html[data-camo-tex] .side__key {
+html[data-camo-tex] .keypad .key {
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 44%),
-    radial-gradient(150% 80% at 50% -20%, rgba(255, 255, 255, 0.12), transparent 55%),
-    linear-gradient(180deg, transparent 56%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.1) 14%, transparent 34%, transparent 60%, rgba(0, 0, 0, 0.28) 100%),
+    linear-gradient(122deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 18%, transparent 40%),
     var(--camo-tex) 0 0 / 210px 210px !important;
 }
-html[data-camo-tex] .keypad .key { background-size: 100% 100%, 100% 100%, 100% 100%, 88px 88px !important; }
-html[data-camo-tex] .side__ptt,
-html[data-camo-tex] .side__key { background-size: 100% 100%, 100% 100%, 100% 100%, 76px 120px !important; }
+html[data-camo-tex] .keypad .key { background-size: 100% 100%, 100% 100%, 88px 88px !important; }
 
 html[data-finish="rubber"] .body {
   background:
