@@ -33,12 +33,16 @@ jobs:
           esac
           version=${version%.apk}
           target=$(git rev-parse HEAD~1)
+          # Android-релизы помечаем pre-release, НЕ latest: иначе они становятся «самым свежим
+          # релизом» репозитория и перебивают дефолтный канал автообновления ПК-станции «Радио»
+          # (та лезет за latest.yml в последний stable-релиз). На поиск обновлений в самих
+          # Android-приложениях флаг не влияет — Updater.java сканирует все релизы по имени APK.
           gh release create "${tag_prefix}${version}" "$apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$target" \
             --title "$title $version" \
             --notes-file notes.md \
-            --latest
+            --prerelease
 
       - name: Убрать ветку apk-release
         env:

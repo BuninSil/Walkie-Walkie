@@ -107,9 +107,12 @@ jobs:
             echo "Ставится обновлением поверх — приложение само найдёт и установит его."
           } > notes.md
           cat notes.md
+          # Pre-release, НЕ latest: Android-релизы не должны быть «самым свежим релизом» репо —
+          # иначе перебивают дефолтный канал автообновления ПК-станции. На автообновление самих
+          # Android-приложений это не влияет (Updater.java сканирует релизы по имени APK).
           gh release create "${TAG}1.0.${N}" "${PREFIX}1.0.${N}.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TITLE 1.0.$N" \
             --notes-file notes.md \
-            --latest
+            --prerelease
