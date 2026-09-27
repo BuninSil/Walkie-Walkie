@@ -237,9 +237,11 @@ public final class Updater {
         return url == null ? null : new String[] { String.valueOf(best), url };
     }
 
-    // Лента релизов: теги v1.0.N (рация) / station-v1.0.N (станция); APK лежит по постоянному адресу
+    // Лента релизов: теги walkie-v1.0.N (рация) / station-v1.0.N (станция) — не голый semver, чтобы
+    // автообновление ПК-станции (electron-updater) их не путало со своими релизами. APK лежит по
+    // постоянному адресу. Основной путь (fromApi) ищет по имени файла APK и от тега не зависит.
     private String[] fromFeed(int current) throws Exception {
-        String tagPrefix = "Station-".equals(BuildConfig.UPDATE_PREFIX) ? "station-v" : "v";
+        String tagPrefix = "Station-".equals(BuildConfig.UPDATE_PREFIX) ? "station-v" : "walkie-v";
         Request req = new Request.Builder().url(FEED).header("Accept", "application/atom+xml").build();
         String body;
         try (Response r = http.newCall(req).execute()) {

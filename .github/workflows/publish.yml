@@ -39,7 +39,7 @@ jobs:
             echo "TAG=station-v"  >> "$GITHUB_ENV"; echo "TITLE=Радиостанция" >> "$GITHUB_ENV"
           else
             echo "DIR=android"    >> "$GITHUB_ENV"; echo "PREFIX=Walkie-"    >> "$GITHUB_ENV"
-            echo "TAG=v"          >> "$GITHUB_ENV"; echo "TITLE=Рация"        >> "$GITHUB_ENV"
+            echo "TAG=walkie-v"   >> "$GITHUB_ENV"; echo "TITLE=Рация"        >> "$GITHUB_ENV"
           fi
 
       # Без постоянного ключа выпускать нельзя: APK с другим ключом не встанет поверх старого
@@ -107,12 +107,12 @@ jobs:
             echo "Ставится обновлением поверх — приложение само найдёт и установит его."
           } > notes.md
           cat notes.md
-          # Pre-release, НЕ latest: Android-релизы не должны быть «самым свежим релизом» репо —
-          # иначе перебивают дефолтный канал автообновления ПК-станции. На автообновление самих
-          # Android-приложений это не влияет (Updater.java сканирует релизы по имени APK).
+          # Тег не голый semver (walkie-v… / station-v…) и НЕ latest — чтобы автообновление ПК-станции
+          # не путало эти Android-релизы со своими. Обычный релиз (не pre-release): обновлятор рации
+          # пропускает pre-release, а ищет по имени файла APK, тег ему не важен.
           gh release create "${TAG}1.0.${N}" "${PREFIX}1.0.${N}.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TITLE 1.0.$N" \
             --notes-file notes.md \
-            --prerelease
+            --latest=false

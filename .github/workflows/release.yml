@@ -27,22 +27,23 @@ jobs:
           apk=$(ls *.apk | head -1)
           [ -f "$apk" ] && [ -f notes.md ] || { echo "::error::Нужны APK и notes.md"; exit 1; }
           case "$apk" in
-            Walkie-*)  version=${apk#Walkie-};  tag_prefix=v;          title="Рация" ;;
+            Walkie-*)  version=${apk#Walkie-};  tag_prefix=walkie-v;   title="Рация" ;;
             Station-*) version=${apk#Station-}; tag_prefix=station-v;  title="Радиостанция" ;;
             *) echo "::error::Неизвестный APK: $apk"; exit 1 ;;
           esac
           version=${version%.apk}
           target=$(git rev-parse HEAD~1)
-          # Android-релизы помечаем pre-release, НЕ latest: иначе они становятся «самым свежим
-          # релизом» репозитория и перебивают дефолтный канал автообновления ПК-станции «Радио»
-          # (та лезет за latest.yml в последний stable-релиз). На поиск обновлений в самих
-          # Android-приложениях флаг не влияет — Updater.java сканирует все релизы по имени APK.
+          # Тег НЕ голый semver (walkie-v… / station-v…) и НЕ latest: так автообновление ПК-станции
+          # «Радио» (electron-updater по дефолтному каналу берёт latest.yml из последнего semver-
+          # релиза) эти Android-релизы не распознаёт и не путает со своими. Релиз остаётся обычным
+          # (не pre-release), потому что обновлятор рации (Updater.java) пропускает pre-release, а
+          # ищет обновление по имени файла APK — тег ему не важен.
           gh release create "${tag_prefix}${version}" "$apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$target" \
             --title "$title $version" \
             --notes-file notes.md \
-            --prerelease
+            --latest=false
 
       - name: Убрать ветку apk-release
         env:

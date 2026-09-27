@@ -124,12 +124,6 @@ jobs:
               --prerelease --draft out-walkie/*
             gh release edit "$wk" --repo "$repo" --draft=false --prerelease
           fi
-          # Android-релизы (Walkie-1.0.N / Station-1.0.N) не должны оставаться stable/latest —
-          # они перебивают дефолтный канал автообновления ПК-станции. Демоутим их в pre-release.
-          # На автообновление самих Android-приложений это не влияет (сканируют релизы по имени APK).
-          gh release list --repo "$repo" --limit 100 --json tagName,isPrerelease \
-            | jq -r '.[] | select(.isPrerelease==false) | select((.tagName|test("^v1\\.0\\.[0-9]+$")) or (.tagName|test("^station-v"))) | .tagName' \
-            | while read -r t; do echo "demote $t → pre-release"; gh release edit "$t" --repo "$repo" --prerelease || true; done
 
       # ───────── Артефакты (для ручного запуска без публикации) ─────────
       - name: Upload installers
