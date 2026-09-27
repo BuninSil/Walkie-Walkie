@@ -1108,7 +1108,9 @@
       engine.beep(880, 0.07);
       retune();
       registerStation();
-      if (cfg.vox) armMic();
+      // Микрофон греем сразу при включении, а не при первом PTT: getUserMedia на телефоне занимает
+      // 100–500 мс, из-за чего было «нажал — говоришь с задержкой». Теперь тангента срабатывает мгновенно.
+      armMic();
     } else {
       pttHeld = false;
       await txStop();

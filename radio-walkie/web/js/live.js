@@ -7,8 +7,8 @@
 const LIVE_RATE = 16000;   // частота дискретизации живого эфира, Гц
 const LIVE_CHUNK = 640;    // сэмплов в одном пакете — 40 мс
 const LIVE_JITTER = 0.22;      // запас на неровную доставку, с — минимум (на хорошей сети)
-const LIVE_JITTER_MAX = 0.8;   // на плохой сети буфер сам растёт до этого, чтобы пережить рывки
-const LIVE_MAX_LAG = 0.6;      // задержка выросла больше буфера — пересинхронизация, чтобы не копилась
+const LIVE_JITTER_MAX = 1.0;   // на плохой сети буфер сам растёт до этого, чтобы пережить рывки
+const LIVE_MAX_LAG = 0.7;      // задержка выросла больше буфера — пересинхронизация, чтобы не копилась
 
 // Без ключа шифротекст звучит как цифровая рация: байты модулируются четырьмя тонами (4FSK)
 const FSK4_TONES = [900, 1500, 2100, 2700];
@@ -107,9 +107,9 @@ class LiveStation extends Station {
   conceal(seq) {
     if (typeof this.lastSeq === 'number' && this.lastFrame) {
       const gap = (seq - this.lastSeq - 1) & 0xff;
-      if (gap > 0 && gap <= 5) {
+      if (gap > 0 && gap <= 8) {
         for (let k = 0; k < gap; k++) {
-          const g = 0.7 ** (k + 1);
+          const g = 0.82 ** (k + 1);
           const f = new Float32Array(this.lastFrame.length);
           for (let i = 0; i < f.length; i++) f[i] = this.lastFrame[i] * g;
           this.play(f, this.reserve(f.length));
@@ -157,22 +157,31 @@ class LiveStation extends Station {
     buf.getChannelData(0).set(samples);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(this.output);
+    // Каждый кусок идёт через свой gain — чтобы при обрыве («пересинхронизации») гасить его
+    // коротким фейдом, а не резким stop(): резкий обрыв на границе буфера даёт щелчок/треск.
+    const g = ctx.createGain();
+    src.connect(g).connect(this.output);
     src.start(Math.max(when, ctx.currentTime));
     // Помним запланированные куски, чтобы при пересинхронизации оборвать «хвост» и не было эха
-    (this.scheduled ??= []).push(src);
+    const item = { src, g };
+    (this.scheduled ??= []).push(item);
     src.onended = () => {
-      const i = this.scheduled.indexOf(src);
+      const i = this.scheduled.indexOf(item);
       if (i >= 0) this.scheduled.splice(i, 1);
+      try { g.disconnect(); } catch { /* уже */ }
     };
   }
 
-  // Пересинхронизация: обрываем ещё не доигранные куски, чтобы новый звук не наложился на старый
+  // Пересинхронизация: гасим ещё не доигранные куски коротким фейдом (8 мс), чтобы новый звук не
+  // наложился на старый (эхо) и при этом не было щелчка от резкого обрыва.
   flushScheduled() {
-    for (const src of this.scheduled ?? []) {
+    const now = this.ctx ? this.ctx.currentTime : 0;
+    for (const { src, g } of this.scheduled ?? []) {
       try {
+        g.gain.setValueAtTime(g.gain.value, now);
+        g.gain.linearRampToValueAtTime(0, now + 0.008);
         src.onended = null;
-        src.stop();
+        src.stop(now + 0.012);
       } catch {
         /* уже остановлен */
       }
@@ -242,12 +251,14 @@ class Broadcaster {
     };
     // Эфирная обработка, как на настоящих станциях: тихое подтягивается, громкое прижимается,
     // поэтому голос и музыка звучат одинаково громко (компрессор сам добавляет усиление)
+    // Мягкий левелер голоса: уровень в основном держит браузерный AGC, компрессор лишь аккуратно
+    // прижимает пики. Раньше был жёсткий (ratio 8) и вместе с AGC качал/душил звук — отсюда «пампинг».
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -26;
-    comp.knee.value = 10;
-    comp.ratio.value = 8;
-    comp.attack.value = 0.003;
-    comp.release.value = 0.25;
+    comp.threshold.value = -20;
+    comp.knee.value = 18;
+    comp.ratio.value = 3;
+    comp.attack.value = 0.006;
+    comp.release.value = 0.2;
     const mute = ctx.createGain();
     mute.gain.value = 0;
     // Сюда же подмешивается сигнал ROGER — мимо измерителя голоса, чтобы VOX на него не срабатывал
@@ -297,8 +308,16 @@ class Broadcaster {
 
   async setMic(on) {
     if (on && !this.mic) {
+      // echoCancellation НЕ включаем: на Android оно загоняет микрофон в «телефонный» режим связи
+      // (узкая полоса ~8–16 кГц + жёсткая обработка → тускло и с артефактами). Рация полудуплексная,
+      // эхоподавление ей не нужно. Оставляем шумодав и авто-громкость, просим моно.
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
       });
       const src = this.ctx.createMediaStreamSource(stream);
       src.connect(this.micGain);
