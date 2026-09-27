@@ -16,8 +16,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "BuninSil",
-        "repo": "Walkie-Walkie",
+        "owner": "WalkieWalkie",
+        "repo": "Walkie_Walkie",
         "releaseType": "draft"
       }
     ],
