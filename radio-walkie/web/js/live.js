@@ -37,6 +37,42 @@ class LiveStation extends Station {
     this.rds = String(info.name).toUpperCase();
   }
 
+  // Звук отдаём непрерывному проигрывателю (один AudioWorklet-узел на станцию) вместо сотни
+  // коротких буферов в секунду — так на телефоне не рвётся и не трещит. Если worklet не поднялся,
+  // прозрачно падаем на старый путь (this.play/reserve), чтобы звук не пропал.
+  build(ctx) {
+    if (this.player) { try { this.player.disconnect(); } catch { /* уже */ } }
+    const out = super.build(ctx);
+    this.player = null;
+    this._pQueue = [];
+    try {
+      const mod = (ctx.__livePlayerModule ??= ctx.audioWorklet.addModule('js/worklets/player.js'));
+      mod.then(() => {
+        if (this.ctx !== ctx) return; // станцию уже пересобрали/закрыли
+        const node = new AudioWorkletNode(ctx, 'live-player', {
+          channelCount: 1, channelCountMode: 'explicit', outputChannelCount: [1],
+          processorOptions: { rate: LIVE_RATE, jitter: LIVE_JITTER },
+        });
+        node.connect(this.output);
+        this.player = node;
+        if (this._pQueue) for (const f of this._pQueue) node.port.postMessage({ samples: f });
+        this._pQueue = null;
+      }).catch(() => { this.player = null; this._pQueue = null; });
+    } catch {
+      this.player = null; this._pQueue = null;
+    }
+    return out;
+  }
+
+  // Один декодированный кадр — в проигрыватель. Пока грузится модуль — копим; если не поднялся —
+  // старый путь через отдельные буферы.
+  emit(frame) {
+    if (!frame || !frame.length) return;
+    if (this.player) { this.player.port.postMessage({ samples: frame }); return; }
+    if (this._pQueue) { if (this._pQueue.length < 60) this._pQueue.push(frame); return; }
+    this.play(frame, this.reserve(frame.length));
+  }
+
   // Несущая есть, пока идёт звук: отпустили тангенту — в приёмнике снова шум
   get onAir() {
     return Boolean(this.ctx) && this.ctx.currentTime - this.lastChunk < 0.35;
@@ -67,7 +103,7 @@ class LiveStation extends Station {
       }
       this.conceal(seq);
       this.lastFrame = frame;
-      this.play(frame, this.reserve(frame.length));
+      this.emit(frame);
       return;
     }
 
@@ -79,13 +115,11 @@ class LiveStation extends Station {
     const cipher = packet.subarray(SEALED_HEAD);
     const plainLen = cipher.length - 16;
     const samples = sealed ? plainLen >> 1 : adpcmSamples(plainLen);
-    // Место в очереди занимаем сразу: расшифровка асинхронная, а порядок важен
     this.conceal(seq);
-    const when = this.reserve(samples);
     const entry = keyring.find(packet.subarray(2, 10));
     if (!entry) {
       this.decrypted = false;
-      this.play(this.sonify(cipher, samples), when);
+      this.emit(this.sonify(cipher, samples));
       return;
     }
     unsealPacket(entry, packet).then(
@@ -93,11 +127,11 @@ class LiveStation extends Station {
         this.decrypted = true;
         const frame = sealed ? pcmToFloat(new Int16Array(buf)) : adpcmDecode(new Uint8Array(buf), adpcmSamples(buf.byteLength));
         this.lastFrame = frame;
-        this.play(frame, when);
+        this.emit(frame);
       },
       () => {
         this.decrypted = false;
-        this.play(this.sonify(cipher, samples), when);
+        this.emit(this.sonify(cipher, samples));
       },
     );
   }
@@ -112,7 +146,7 @@ class LiveStation extends Station {
           const g = 0.82 ** (k + 1);
           const f = new Float32Array(this.lastFrame.length);
           for (let i = 0; i < f.length; i++) f[i] = this.lastFrame[i] * g;
-          this.play(f, this.reserve(f.length));
+          this.emit(f);
         }
       }
     }
