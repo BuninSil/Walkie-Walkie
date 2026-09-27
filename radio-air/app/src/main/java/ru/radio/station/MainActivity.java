@@ -296,5 +296,17 @@ public class MainActivity extends ComponentActivity implements Station.Listener 
                 if (!station.setMic(on) && on) askMic.launch(Manifest.permission.RECORD_AUDIO);
             });
         }
+
+        // Полный выход: глушим эфир и фоновый сервис, закрываем окно и завершаем процесс,
+        // чтобы станция не оставалась висеть в фоне и не занимала память.
+        @JavascriptInterface
+        public void quit() {
+            main.post(() -> {
+                try { station.stop(); } catch (Exception ignored) { /* уже */ }
+                try { StationService.stop(MainActivity.this); } catch (Exception ignored) { /* уже */ }
+                finishAndRemoveTask();
+                main.postDelayed(() -> System.exit(0), 200); // добить процесс, удерживаемый сервисом/аудио
+            });
+        }
     }
 }
