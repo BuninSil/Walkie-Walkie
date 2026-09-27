@@ -30,8 +30,13 @@ FILES = {
     'widget.html': ROOT / 'widget.html',
     'css/style.css': ROOT / 'css' / 'style.css',
     'css/widget.css': ROOT / 'css' / 'widget.css',
+    'css/look-station.css': ROOT / 'css' / 'look-station.css',
+    'css/look.css': ROOT / 'css' / 'look.css',
+    'css/panel.css': ROOT / 'css' / 'panel.css',
+    'css/skins.css': ROOT / 'css' / 'skins.css',
     **{f'js/{p.name}': p for p in sorted((ROOT / 'js').glob('*.js'))},
     'js/worklets/capture.js': ROOT / 'js' / 'worklets' / 'capture.js',
+    'js/worklets/player.js': ROOT / 'js' / 'worklets' / 'player.js',
 }
 
 

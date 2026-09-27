@@ -1106,7 +1106,8 @@
       engine.beep(880, 0.07);
       retune();
       registerStation();
-      if (cfg.vox) armMic();
+      // Микрофон греем сразу при включении, а не при первом PTT — тангента срабатывает мгновенно.
+      armMic();
     } else {
       pttHeld = false;
       await txStop();

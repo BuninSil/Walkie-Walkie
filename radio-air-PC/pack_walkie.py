@@ -63,6 +63,7 @@ FILES = {
     'web/js/updater-ui.js': ROOT / 'js' / 'updater-ui.js',
     'web/js/pc-panel.js': ROOT / 'js' / 'pc-panel.js',
     'web/js/worklets/capture.js': ROOT / 'js' / 'worklets' / 'capture.js',
+    'web/js/worklets/player.js': ROOT / 'js' / 'worklets' / 'player.js',
     **{f'web/fonts/{name}': ROOT / 'fonts' / name for name in FONTS},
     # Фотоскины камуфляжа: готовые рендеры корпуса, кнопок, боковых, ручки (skins/<цвет>_*.png)
     **{f'web/css/skins/{p.name}': p for p in sorted((ROOT / 'css' / 'skins').glob('*.png'))},
