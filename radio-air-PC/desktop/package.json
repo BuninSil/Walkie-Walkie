@@ -31,6 +31,8 @@
       "air-server.js",
       "upnp.js",
       "hotkeys.js",
+      "telegram.js",
+      "control.js",
       "package.json",
       "!**/node_modules/uiohook-napi/prebuilds/{darwin-*,linux-*,win32-arm64}/**",
       "!**/node_modules/uiohook-napi/{src,libuiohook,build}/**"
