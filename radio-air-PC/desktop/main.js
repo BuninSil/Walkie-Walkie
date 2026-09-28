@@ -20,6 +20,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { AirServer } = require('./air-server');
 const { PortMapper, lanAddresses, isPublicIp, publicAddresses } = require('./upnp');
+const { TelegramBot } = require('./telegram');
 const { Hotkeys, ACTIONS, DEFAULTS, label } = require('./hotkeys');
 
 const pkg = require('./package.json');
@@ -77,6 +78,7 @@ let prefs = {
   bar: { opacity: 0.92, clickThrough: false },
   hotkeys: { bindings: { ...DEFAULTS }, pttMode: 'hold' },
   autoUpdate: true, // тихо качать и ставить обновления из релизов GitHub
+  telegram: { token: '', password: '', chats: [] }, // управление станцией из Телеграма
 };
 
 function validCombo(c) {
@@ -102,6 +104,11 @@ function loadPrefs() {
       },
       hotkeys: { bindings, pttMode: data.hotkeys?.pttMode === 'toggle' ? 'toggle' : 'hold' },
       autoUpdate: data.autoUpdate !== false,
+      telegram: {
+        token: typeof data.telegram?.token === 'string' ? data.telegram.token : '',
+        password: typeof data.telegram?.password === 'string' ? data.telegram.password : '',
+        chats: Array.isArray(data.telegram?.chats) ? data.telegram.chats.filter((n) => Number.isInteger(n)) : [],
+      },
     };
   } catch {
     /* первый запуск — настройки по умолчанию */
@@ -493,6 +500,55 @@ app.on('second-instance', () => {
   win.focus();
 });
 
+// ───────── Телеграм-бот управления станцией ─────────
+
+const bot = new TelegramBot({
+  get: () => prefs.telegram,
+  save: (patch) => { prefs.telegram = { ...prefs.telegram, ...patch }; savePrefs(); },
+});
+
+let botReqId = 0;
+const botPending = new Map();
+
+// Команду исполняет окно станции (renderer): там broadcaster, link, плейлист, оповещения.
+bot.onCommand((cmd, args, chatId) => new Promise((resolve) => {
+  if (!win || win.isDestroyed()) { resolve('Станция сейчас закрыта.'); return; }
+  const id = ++botReqId;
+  botPending.set(id, resolve);
+  win.webContents.send('bot:command', { id, cmd, args, chatId });
+  setTimeout(() => {
+    if (botPending.has(id)) { botPending.delete(id); resolve('Станция не ответила — окно эфира закрыто?'); }
+  }, 8000);
+}));
+
+ipcMain.handle('bot:answer', (_e, { id, text } = {}) => {
+  const resolve = botPending.get(id);
+  if (resolve) { botPending.delete(id); resolve(text || ''); }
+});
+
+ipcMain.handle('telegram:get', () => ({
+  token: prefs.telegram.token,
+  hasPassword: Boolean(prefs.telegram.password),
+  chats: prefs.telegram.chats.length,
+  running: bot.running,
+  username: bot.me && bot.me.username ? bot.me.username : '',
+}));
+
+ipcMain.handle('telegram:set', async (_e, cfg = {}) => {
+  const next = { ...prefs.telegram };
+  if (typeof cfg.token === 'string') next.token = cfg.token.trim();
+  if (typeof cfg.password === 'string') next.password = cfg.password;
+  if (cfg.forget === true) next.chats = []; // «забыть доверенные чаты»
+  prefs.telegram = next;
+  savePrefs();
+  bot.stop();
+  let error = '';
+  if (next.token) {
+    try { await bot.start(); } catch (e) { error = e.message; }
+  }
+  return { running: bot.running, username: bot.me && bot.me.username ? bot.me.username : '', error, hasPassword: Boolean(next.password), chats: next.chats.length };
+});
+
 app.whenReady().then(() => {
   protocol.handle('app', (request) => {
     const rel = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '') || PAGES[0];
@@ -526,6 +582,7 @@ app.whenReady().then(() => {
   hotkeys.start();
   openWindow(process.argv.includes('--widget') ? 'widget' : prefs.mode);
   setupUpdater();
+  bot.start().catch(() => {}); // молча: не настроен или сеть — не мешаем запуску станции
 });
 
 app.on('window-all-closed', () => app.quit());
