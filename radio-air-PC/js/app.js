@@ -1020,7 +1020,31 @@
         switch (m.cmd) {
           case 'help':
           case 'start':
-            answer = 'Команды станции:\n/status — что в эфире\n/on [частота] — выйти в эфир\n/off — закончить эфир\n/freq 101.5 — частота\n/notice обновление|перезапуск|выключение|работа [текст] — оповестить всех в эфире\n/radio <url> — интернет-радио в эфир\n/radio_off — выключить радио\n/next — следующий трек\nПросто текст сообщением — оповещение всем в эфире';
+            answer = [
+              '📻 Эфир:',
+              '/status — что сейчас в эфире',
+              '/on [частота] — выйти в эфир',
+              '/off — закончить эфир',
+              '/freq 101.5 — сменить частоту',
+              '/next — следующий трек',
+              '/radio <url> — интернет-радио в эфир',
+              '/radio_off — выключить радио',
+              '',
+              '📡 Сервер:',
+              '/server_on — открыть свой сервер',
+              '/server_off — закрыть свой сервер',
+              '/notice обновление|перезапуск|выключение|работа [текст] — оповестить всех',
+              '',
+              '⚙️ Станция:',
+              '/station_off — свернуть в фон (эфир и сервер стоп, бот на связи)',
+              '/station_on — вернуть из фона',
+              '/restart — перезапустить приложение',
+              '/quit — полностью выключить (обратно из ТГ не поднять)',
+              '/check — проверить обновления',
+              '/update — обновить станцию',
+              '',
+              'Просто текст — оповещение всем в эфире.',
+            ].join('\n');
             break;
           case 'status':
             answer = botStatus();
@@ -1069,6 +1093,21 @@
           case 'next':
             if (broadcast.active && !netRadio.active) { playNext(); answer = '⏭ Следующий трек.'; }
             else answer = 'Плейлист играет только в эфире и без интернет-радио.';
+            break;
+          case 'server_on':
+            if (serverState.hosting) { answer = 'Свой сервер уже открыт.'; break; }
+            await startHosting();
+            answer = serverState.hosting ? '📡 Свой сервер открыт.' : '⚠️ Не удалось открыть сервер.';
+            break;
+          case 'server_off':
+            if (!serverState.hosting) { answer = 'Свой сервер и так не запущен.'; break; }
+            await stopHosting();
+            answer = '📡 Свой сервер закрыт.';
+            break;
+          case 'stopall': // из /station_off: остановить эфир и свой сервер
+            if (broadcast.active) await goOffAir();
+            if (serverState.hosting) await stopHosting();
+            answer = '';
             break;
           case 'say':
             if (!link.online) { answer = 'Нет связи с сервером.'; break; }

@@ -512,6 +512,48 @@ const botPending = new Map();
 
 // Команду исполняет окно станции (renderer): там broadcaster, link, плейлист, оповещения.
 bot.onCommand((cmd, args, chatId) => new Promise((resolve) => {
+  // Управление самим приложением — прямо в main (окно для этого не нужно)
+  if (cmd === 'restart') {
+    resolve('♻️ Перезапускаю станцию — вернусь через несколько секунд.');
+    setTimeout(() => { app.relaunch(); app.quit(); }, 1500);
+    return;
+  }
+  if (cmd === 'quit') {
+    resolve('🛑 Выключаю станцию. Обратно из Телеграма включить не получится — команду принимать будет некому.');
+    setTimeout(() => app.quit(), 1500);
+    return;
+  }
+  if (cmd === 'station_off') {
+    // «Выключить» станцию из ТГ = уйти в фон: эфир и свой сервер стоп, окно спрятать,
+    // но процесс и бот живут — иначе включить обратно из Телеграма было бы некому.
+    if (win && !win.isDestroyed()) { win.webContents.send('bot:command', { id: -1, cmd: 'stopall', args: '' }); win.hide(); }
+    resolve('💤 Станция свёрнута в фон: эфир и свой сервер остановлены, окно спрятано. Вернуть: /station_on. Бот остаётся на связи.');
+    return;
+  }
+  if (cmd === 'station_on') {
+    if (win && !win.isDestroyed()) { win.show(); win.focus(); }
+    resolve('▶️ Станция активна, окно открыто. Дальше: /server_on, затем /on 101.5.');
+    return;
+  }
+  if (cmd === 'check') {
+    if (autoUpdater) autoUpdater.checkForUpdates().catch(() => {});
+    resolve('🔍 Проверяю обновления… через минуту — /status или /update.');
+    return;
+  }
+  if (cmd === 'update') {
+    if (!autoUpdater) { resolve('Обновление работает только в установленном приложении.'); return; }
+    const st = updaterState && updaterState.state;
+    if (st === 'ready') {
+      resolve('⬇️ Ставлю обновление и перезапускаюсь…');
+      setTimeout(() => { try { autoUpdater.quitAndInstall(false, true); } catch { /* ждём выхода из эфира */ } }, 1200);
+    } else if (st === 'downloading') {
+      resolve(`Уже качаю обновление… ${updaterState.percent || 0}%. Повторите /update, когда докачается.`);
+    } else {
+      autoUpdater.checkForUpdates().catch(() => {});
+      resolve('Ищу обновление. Если найдётся — скачаю; затем /update ещё раз, чтобы поставить.');
+    }
+    return;
+  }
   if (!win || win.isDestroyed()) { resolve('Станция сейчас закрыта.'); return; }
   const id = ++botReqId;
   botPending.set(id, resolve);
