@@ -134,7 +134,9 @@ def package_json():
             'directories': build['directories'],
             'files': build['files'],
             'extraResources': [{'from': 'web', 'to': 'web'}],
-            'win': {**build['win'], 'icon': 'build/icon.ico'},
+            # Рации portable-zip не нужен (её ставят обычным установщиком) — оставляем только
+            # nsis и НЕ наследуем portable-artifactName станции, иначе имена zip столкнутся.
+            'win': {**build['win'], 'icon': 'build/icon.ico', 'target': ['nsis'], 'artifactName': 'Walkie-${version}.${ext}'},
             # nsis.include станции (build/installer.nsh) в дерево рации не кладём — иначе
             # electron-builder упадёт «cannot find build/installer.nsh». У рации свой exe,
             # хук закрытия ей не нужен; ключ include отбрасываем.
