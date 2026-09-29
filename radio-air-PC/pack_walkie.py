@@ -135,7 +135,10 @@ def package_json():
             'files': build['files'],
             'extraResources': [{'from': 'web', 'to': 'web'}],
             'win': {**build['win'], 'icon': 'build/icon.ico'},
-            'nsis': {**build['nsis'], 'artifactName': 'Walkie-Setup-${version}.exe', 'shortcutName': TITLE},
+            # nsis.include станции (build/installer.nsh) в дерево рации не кладём — иначе
+            # electron-builder упадёт «cannot find build/installer.nsh». У рации свой exe,
+            # хук закрытия ей не нужен; ключ include отбрасываем.
+            'nsis': {**{k: v for k, v in build['nsis'].items() if k != 'include'}, 'artifactName': 'Walkie-Setup-${version}.exe', 'shortcutName': TITLE},
             'npmRebuild': build['npmRebuild'],
         },
         'dependencies': src['dependencies'],
