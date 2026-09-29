@@ -78,8 +78,7 @@
       "oneClick": true,
       "perMachine": false,
       "artifactName": "Radio-Setup-${version}.exe",
-      "shortcutName": "Радио",
-      "include": "build/installer.nsh"
+      "shortcutName": "Радио"
     },
     "npmRebuild": false
   },
