@@ -536,12 +536,24 @@ function localServer() {
   return server && typeof server.addLocalStation === 'function' ? server : null;
 }
 
+// ffmpeg, вшитый в установщик (extraResources). После обновления лежит рядом — ставить не надо.
+function bundledFfmpeg() {
+  try {
+    const name = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+    return process.resourcesPath ? path.join(process.resourcesPath, name) : '';
+  } catch { return ''; }
+}
+
+function resolveRelayFfmpeg() {
+  return ffmpegPath(prefs.relay.ffmpeg, bundledFfmpeg());
+}
+
 function relayStart(url) {
   const srv = localServer();
   if (!srv) return { ok: false, error: 'Сначала открой свой сервер эфира (кнопка «Открыть сервер»).' };
   if (!url) return { ok: false, error: 'Дай ссылку на поток: /radio http://адрес' };
-  const ffmpeg = ffmpegPath(prefs.relay.ffmpeg);
-  if (!ffmpeg) return { ok: false, error: 'ffmpeg не найден. Установи ffmpeg на сервере (в PATH) или задай путь в настройках.' };
+  const ffmpeg = resolveRelayFfmpeg();
+  if (!ffmpeg) return { ok: false, error: 'ffmpeg не найден. Обычно он вшит в обновление; если нет — задай путь в настройках или положи ffmpeg в PATH.' };
   if (!relayStation) relayStation = srv.addLocalStation();
   if (!relayStation.onAirNow && !relayStation.onAir(prefs.relay.freq, prefs.relay.name)) {
     return { ok: false, error: 'Частота должна быть 87.5–108 или 400–470 МГц.' };
@@ -622,8 +634,8 @@ function runStationCommand(cmd, args) {
   if (cmd === 'ffmpeg') {
     const p = String(args || '').trim();
     prefs.relay.ffmpeg = p; savePrefs();
-    const found = ffmpegPath(p);
-    resolve(found ? `✅ ffmpeg найден: ${found}. Готово к серверному эфиру.` : '⚠️ ffmpeg по этому пути/в PATH не отвечает. Проверь установку.');
+    const found = resolveRelayFfmpeg();
+    resolve(found ? `✅ ffmpeg найден: ${found}. Готово к серверному эфиру.` : '⚠️ ffmpeg не отвечает ни вшитый, ни по пути/в PATH. Проверь установку.');
     return;
   }
   if (cmd === 'name') {

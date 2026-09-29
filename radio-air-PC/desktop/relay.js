@@ -22,13 +22,13 @@ const FRAME_BYTES = CHUNK * 2;
 const FRAME_MS = 40;
 const MAX_BACKLOG = FRAME_BYTES * 200; // ~8 с PCM в запасе — больше не копим (режем хвост)
 
-// Найти рабочий ffmpeg: сперва путь из настроек, потом вшитый ffmpeg-static (если есть),
-// потом системный из PATH. Возвращает команду или null, если ffmpeg нигде не нашёлся.
-// Кросс-компиляция бинаря под чужую ОС ненадёжна, поэтому ставка на системный/указанный ffmpeg.
-function resolveFfmpeg(configured) {
+// Найти рабочий ffmpeg по порядку: вшитый в установщик бинарь (bundled) → путь из настроек →
+// системный из PATH. Возвращает команду/путь или null, если ffmpeg нигде не отвечает.
+function resolveFfmpeg(configured, bundled) {
   const tries = [];
-  if (configured) tries.push(configured);
-  try { const p = require('ffmpeg-static'); if (p) tries.push(p.replace('app.asar', 'app.asar.unpacked')); } catch { /* не вшит — норм */ }
+  if (bundled) tries.push(bundled);           // вшит в сборку — после обновления уже на месте
+  if (configured) tries.push(configured);     // указан руками
+  try { const p = require('ffmpeg-static'); if (p) tries.push(p.replace('app.asar', 'app.asar.unpacked')); } catch { /* не вшит через npm — норм */ }
   tries.push(process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'); // из PATH
   for (const cmd of tries) {
     try {
@@ -40,9 +40,9 @@ function resolveFfmpeg(configured) {
   return null;
 }
 
-// Совместимость: путь к ffmpeg с учётом настройки (для проверки «есть ли вообще ffmpeg»)
-function ffmpegPath(configured) {
-  return resolveFfmpeg(configured);
+// Путь к рабочему ffmpeg с учётом вшитого бинаря и настройки (или null, если нет)
+function ffmpegPath(configured, bundled) {
+  return resolveFfmpeg(configured, bundled);
 }
 
 class StreamRelay {

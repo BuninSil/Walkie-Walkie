@@ -1,0 +1,3 @@
+
+# ffmpeg вшивается в сборку через CI, сам бинарь не коммитим
+radio-air-PC/desktop/vendor/ffmpeg*

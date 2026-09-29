@@ -41,6 +41,13 @@
     ],
     "extraResources": [
       {
+        "from": "vendor",
+        "to": ".",
+        "filter": [
+          "ffmpeg*"
+        ]
+      },
+      {
         "from": "../index.html",
         "to": "web/index.html"
       },
